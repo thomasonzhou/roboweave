@@ -38,7 +38,7 @@ The core objective of RoboWeave is to enable robotic actuation from semantically
 - Multimodal Prompting: Supports text, images, and videos as input modalities.
 - LLM-Driven Reasoning: Leverages Gemini’s integrated text-vision model to interpret human intent in both explicit and latent forms.
 - Realtime Feedback Loop: Weave integration enables visualization of both prompts and resulting robotic behaviors in a continuous interaction loop.
-- A2A Control Interface: Encapsulates low-level robot actuation via MCP-compatible command streaming.
+- MCP Control Interface: Encapsulates low-level robot actuation via MCP-compatible command streaming.
 
 ## Use Case Scenarios
 
