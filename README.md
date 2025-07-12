@@ -5,11 +5,11 @@ _Weave Hackathon 2025_
 
 ## Abstract
 
-RoboWeave is a multimodal robot control pipeline that maps high-level prompts—expressed via natural language, images, or video—into structured robotic commands. It integrates the Google Gemini large multimodal model with a backend motion control stack (MCP) to enable intuitive control of physical systems. The project emphasizes the use of prompt engineering, multimodal reasoning, and real-time integration with the Weave platform for frontend interaction and visualization.
+RoboWeave is a multimodal robot control pipeline that maps high-level prompts—expressed via natural language, images, or video—into structured robotic commands. It integrates the Google Gemini large multimodal model that calls on model context protocol (MCP) servers to enable intuitive control of physical systems. The project emphasizes the use of prompt engineering, multimodal reasoning, and real-time integration with the Weave platform for frontend interaction and visualization.
 
 ## System Overview
 
-The core objective of RoboWeave is to enable robotic actuation from semantically rich prompts. Input is collected via a Weave-based frontend, routed to Gemini for interpretation, and ultimately converted into commands via a backend motion planning pipeline. The architecture supports text, image, and video inputs and is designed to generalize across multiple robotic tasks.
+The core objective of RoboWeave is to enable robotic actuation from semantically rich prompts. Input is collected via a Weave-intergrated frontend that reads sensor input, routed to Gemini for interpretation, and ultimately converted into commands to send to a backend motion planning pipeline. The architecture supports a mixture of text, image, and video inputs and is designed to generalize across multiple robotic tasks.
 
 ## Architecture
 
@@ -17,6 +17,7 @@ The core objective of RoboWeave is to enable robotic actuation from semantically
 
 1. **Weave Frontend Integration**
    - Handles prompt input via typed text, image upload, or recorded video.
+   - Streams live actuator states and sensor readings from a robot
    - Offers live feedback, status visualization, and demonstration playback.
    - Provides an interface for operators to review prompt-to-behavior mappings.
 
@@ -29,8 +30,8 @@ The core objective of RoboWeave is to enable robotic actuation from semantically
    - Maintains state awareness and accounts for feasibility based on robot capabilities.
 
 4. **Backend Execution**
-   - Commands are translated into MCP format (Motion Control Protocol).
-   - Sent via an A2A (agent-to-agent) stack to the robot controller.
+   - Commands are translated into MCP format (Model Context Protocol).
+   - Sent via fault-tolerant channels to the robot controller.
    - Execution is monitored for safety, validity, and alignment with prompt expectations.
 
 ## Key Features
@@ -49,7 +50,7 @@ Three representative success cases were implemented and validated in the hackath
    - System generates obstacle-aware straight-line motion using LLM and planner
 
 2. **Orientation Change**
-   - User prompt: "Turn left 90 degrees"
+   - User prompt: "Turn left 45 degrees"
    - Pose change verified via simulation and robot telemetry
 
 3. **Simple Task Execution**
@@ -64,7 +65,7 @@ roboweave/
 ├── backend/
 │   ├── llm/             # Gemini interaction and parsing
 │   ├── planning/        # Prompt-to-motion translation
-│   └── a2a_api/         # MCP integration layer
+│   └── mcp/         # MCP integration layer
 ├── scripts/             # QA, telemetry, test cases
 ├── docs/                # Architecture notes and presentation assets
 └── README.md
@@ -81,9 +82,9 @@ roboweave/
 ## Deliverables (Weave Hackathon 2025)
 
 - End-to-end demonstrator for prompt-driven robot control
-- Fully integrated frontend-backend pipeline with Gemini
+- Fully integrated frontend-backend pipeline with Weave tracing
 - Evaluation of multimodal reasoning performance for real-time robotic control
-- Narrated presentation and source-level documentation
+- Narrated presentation video and source-level documentation
 
 ## Team
 
