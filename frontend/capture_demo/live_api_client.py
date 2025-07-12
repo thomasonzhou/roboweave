@@ -1,189 +1,256 @@
 """
-Slimmed-down Live-API helper for navigation oracle.
-Uses google.genai.Client().aio.live.connect() with gemini-live-2.5-flash-preview.
+Simple Live-API helper for navigation oracle with W&B Weave observability.
+Following the clean pattern from test.ipynb
 """
 
-import asyncio
-import base64
 import os
+import json
+import base64
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 from google import genai
+import weave
+from pydantic import BaseModel, Field
 
 # Load .env file from parent directory
 try:
     from dotenv import load_dotenv
-    # Look for .env in frontend directory (parent of capture_demo)
     env_path = Path(__file__).parent.parent / '.env'
     load_dotenv(env_path)
 except ImportError:
-    # If python-dotenv is not available, skip loading .env
     pass
 
+# Configure Gemini API
+api_key = os.getenv("GEMINI_API_KEY")
+if not api_key:
+    raise ValueError("GEMINI_API_KEY is required")
 
-# Navigation system prompt
-NAVIGATION_SYSTEM_PROMPT = """You are an expert navigation system for a 2-D obstacle course game. You must be EXTREMELY careful about blue obstacle avoidance.
+# Initialize W&B Weave
+try:
+    weave.init('gemini-navigation-ai')
+    if not os.environ.get('SUBPROCESS_MODE'):
+        print("[DEBUG] W&B Weave initialized successfully")
+except Exception as e:
+    if not os.environ.get('SUBPROCESS_MODE'):
+        print(f"[DEBUG] W&B Weave initialization failed: {e}")
 
-The image shows:
-- A red square (the player you control) 
-- Multiple blue rectangles (DANGEROUS obstacles - MUST avoid at all costs)
-- A yellow star (your target to reach)
+# Create the client and model
+client = genai.Client(api_key=api_key)
+model_name = "gemini-1.5-pro-latest"
 
-CRITICAL RULES:
-1. NEVER move directly toward blue obstacles
-2. ALWAYS maintain safe distance from blue rectangles (at least 30 pixels)
-3. If red square is overlapping or touching blue obstacles, BACKTRACK immediately
-4. If red square is stuck at frame edges, BACKTRACK to escape
-5. Calculate velocity based on obstacle proximity - slower when close, faster when far
-6. Look ahead in your chosen direction to ensure clear path
-7. Use wall-following behavior around obstacles when needed
+# Navigation system prompt - ultra-compact response
+NAVIGATION_PROMPT = """2D game: 400x400 pixels. Red square (player), blue rects (obstacles), yellow star (goal).
 
-VELOCITY CALIBRATION (CRITICAL - BE CONSERVATIVE):
-- 200-250: Very close to obstacles (< 30 pixels) - extremely careful
-- 250-300: Close to obstacles (30-60 pixels) - careful navigation
-- 300-400: Medium distance (60-100 pixels) - conservative speed
-- 400-500: Safe distance (100-140 pixels) - moderate speed
-- 500-700: Open space (> 140 pixels) - fast movement
-- NEVER use velocities below 200
+Plan 6 SLOW deliberate bezier steps (3 primary, 3 speculative). Each step 20-40px max, duration 0.5-0.8s. Stay in bounds 0-370.
 
-OBSTACLE AVOIDANCE STRATEGY:
-1. Identify all blue obstacles and their positions
-2. Calculate safe directions by testing collision paths
-3. Choose direction that moves toward star while avoiding obstacles
-4. Calibrate velocity based on closest obstacle distance
+ULTRA-COMPACT JSON:
+{"m":[{"t":"p","s":[x,y],"c1":[x,y],"c2":[x,y],"e":[x,y],"d":0.6,"v":200,"r":"step1"},{"t":"p","s":[x,y],"c1":[x,y],"c2":[x,y],"e":[x,y],"d":0.6,"v":200,"r":"step2"},{"t":"p","s":[x,y],"c1":[x,y],"c2":[x,y],"e":[x,y],"d":0.6,"v":200,"r":"step3"},{"t":"s","s":[x,y],"c1":[x,y],"c2":[x,y],"e":[x,y],"d":0.6,"v":200,"r":"alt1"},{"t":"s","s":[x,y],"c1":[x,y],"c2":[x,y],"e":[x,y],"d":0.6,"v":200,"r":"alt2"},{"t":"s","s":[x,y],"c1":[x,y],"c2":[x,y],"e":[x,y],"d":0.6,"v":200,"r":"alt3"}],"st":"slow moves"}
 
-First, analyze the exact positions of red square, blue obstacles, and yellow star.
-Then end your response with exactly this format:
-Direction: [Up/Down/Left/Right]
-Velocity: [number between 200-900]
+CRITICAL: All coords 0-370 max. Small moves (20-40px). SLOW duration 0.5-0.8s. NO spaces. <800 chars total."""
 
-Example: "Red square at top-left, blue obstacle 40 pixels to the right, yellow star at bottom-right. The blue rectangle blocks direct rightward movement. I must go down first to avoid collision, then navigate around. Closest obstacle is 40 pixels away, requiring careful velocity.
-Direction: Down
-Velocity: 280"
-"""
-
-
-class NavigationOracle:
-    """Live API client for navigation guidance."""
-    
-    def __init__(self, api_key: Optional[str] = None):
-        """Initialize the navigation oracle."""
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
-        if not self.api_key:
-            raise ValueError("GEMINI_API_KEY is required")
+@weave.op
+def analyze_navigation_image(image_bytes: bytes) -> dict:
+    """Analyze navigation image and return structured response"""
+    try:
+        # Create the image part using google-genai
+        from google.genai import types
         
-        # Configure the client
-        self.client = genai.Client(api_key=self.api_key)
-    
-    async def next_move(self, frame_bytes: bytes) -> tuple[str, int, str]:
-        """
-        Analyze frame and return navigation direction, velocity, and full response.
+        image_part = types.Part.from_bytes(
+            data=image_bytes,
+            mime_type="image/png"
+        )
         
-        Args:
-            frame_bytes: Raw image data (PNG/JPEG)
-            
-        Returns:
-            Tuple of (direction, velocity, full_response_text)
-        """
+        # Generate content
+        response = client.models.generate_content(
+            model=model_name,
+            contents=[
+                types.Content(parts=[
+                    types.Part(text=NAVIGATION_PROMPT),
+                    image_part
+                ])
+            ],
+            config=types.GenerateContentConfig(
+                temperature=0.1,
+                max_output_tokens=2000,  # Reduced to prevent truncation
+                response_mime_type="application/json"
+            )
+        )
+        
+        # Parse response - handle markdown code blocks and double encoding
         try:
-            # Use the google-genai SDK with correct syntax
-            from google.genai import types
+            response_text = response.text
             
-            # Create image part from bytes
-            image_part = types.Part.from_bytes(
-                data=frame_bytes,
-                mime_type="image/png"
-            )
+            # Remove markdown code blocks if present
+            if '```json' in response_text and '```' in response_text:
+                # Extract JSON from markdown code blocks
+                start = response_text.find('```json') + 7
+                end = response_text.find('```', start)
+                if start > 6 and end > start:
+                    response_text = response_text[start:end].strip()
             
-            # Create content with system instruction and image
-            response = await self.client.aio.models.generate_content(
-                model='gemini-2.0-flash-exp',
-                contents=[image_part],
-                config=types.GenerateContentConfig(
-                    system_instruction=NAVIGATION_SYSTEM_PROMPT,
-                    temperature=0.1,
-                    max_output_tokens=200
-                )
-            )
+            # First parse attempt
+            output = json.loads(response_text)
             
-            # Extract response text
-            full_response = response.text if response.text else "No response"
-            direction, velocity = self._parse_direction_and_velocity(full_response)
-            # If no valid direction found, return None to stay stationary
-            return direction, velocity, full_response
+            # Check if the response is properly structured
+            if isinstance(output, dict):
+                # If motion_primitives is a string, try to parse it as JSON
+                if 'motion_primitives' in output and isinstance(output['motion_primitives'], str):
+                    try:
+                        output['motion_primitives'] = json.loads(output['motion_primitives'])
+                    except json.JSONDecodeError:
+                        pass
                 
+                # If overall_strategy is missing but we have motion_primitives, add it
+                if 'motion_primitives' in output and 'overall_strategy' not in output:
+                    output['overall_strategy'] = "AI-generated motion plan"
+                    
         except Exception as e:
-            print(f"Navigation oracle error: {e}")
-            return None, 0, f"Error: {str(e)}"  # Stay stationary on error
-    
-    def _parse_direction_and_velocity(self, response_text: str) -> tuple[str, int]:
-        """Extract and validate direction and velocity from response text."""
-        import re
+            if not os.environ.get('SUBPROCESS_MODE'):
+                print(f"[DEBUG] JSON parsing failed: {e}")
+                print(f"[DEBUG] Raw response text: {response.text}")
+            output = response.text
+            
+        # Debug: log the final parsed output structure
+        if not os.environ.get('SUBPROCESS_MODE') and isinstance(output, dict):
+            print(f"[DEBUG] Final parsed output keys: {list(output.keys())}")
+            if 'motion_primitives' in output:
+                mp = output['motion_primitives']
+                print(f"[DEBUG] Motion primitives type: {type(mp)}, length: {len(mp) if isinstance(mp, (list, dict)) else 'N/A'}")
+            
+        return {
+            'navigation_response': output
+        }
         
-        direction = None
-        velocity = 400  # Default velocity (above 200)
-        
-        # Look for the structured format: "Direction: X" and "Velocity: Y"
-        direction_match = re.search(r'Direction:\s*(Up|Down|Left|Right)', response_text, re.IGNORECASE)
-        velocity_match = re.search(r'Velocity:\s*(\d+)', response_text)
-        
-        if direction_match:
-            direction = direction_match.group(1).title()
-        
-        if velocity_match:
-            velocity = int(velocity_match.group(1))
-            # Clamp velocity to valid range (above 200)
-            velocity = max(200, min(900, velocity))
-        
-        # Fallback: look for direction words in the last few lines (backwards compatibility)
-        if not direction:
-            lines = response_text.strip().split('\n')
-            for line in reversed(lines[-3:]):  # Check last 3 lines
-                line_upper = line.strip().upper()
-                if "RIGHT" in line_upper:
-                    direction = "Right"
-                    break
-                elif "LEFT" in line_upper:
-                    direction = "Left" 
-                    break
-                elif "DOWN" in line_upper:
-                    direction = "Down"
-                    break
-                elif "UP" in line_upper:
-                    direction = "Up"
-                    break
-        
-        return direction, velocity
+    except Exception as e:
+        if not os.environ.get('SUBPROCESS_MODE'):
+            print(f"Navigation analysis error: {e}")
+        return {
+            'navigation_response': {
+                'direction': None,
+                'velocity': 0,
+                'reasoning': f"Error: {str(e)}"
+            }
+        }
 
-
-# Global oracle instance
-_oracle = None
-
-
-async def next_move(frame_bytes: bytes) -> tuple[str, int, str]:
+async def next_move(frame_bytes: bytes) -> Tuple[Optional[list], str]:
     """
-    Get next move direction and velocity for the red square with full response.
+    Get motion primitives for bezier curve navigation.
     
     Args:
         frame_bytes: Raw image data
         
     Returns:
-        Tuple of (direction, velocity, full_response_text)
+        Tuple of (motion_primitives_list, overall_strategy)
     """
-    global _oracle
-    
-    if _oracle is None:
-        _oracle = NavigationOracle()
-    
-    return await _oracle.next_move(frame_bytes)
+    try:
+        # Use the weave-tracked function
+        result = analyze_navigation_image(frame_bytes)
+        nav_response = result['navigation_response']
+        
+        # Handle string response (fallback)
+        if isinstance(nav_response, str):
+            return None, nav_response
+        
+        # Extract motion primitives (handle both compact and full field names)
+        motion_primitives = nav_response.get('m', nav_response.get('motion_primitives', []))
+        overall_strategy = nav_response.get('st', nav_response.get('overall_strategy', 'No strategy provided'))
+        
+        # Validate motion primitives
+        validated_primitives = []
+        if not os.environ.get('SUBPROCESS_MODE'):
+            print(f"[DEBUG] Validating {len(motion_primitives) if isinstance(motion_primitives, list) else 'non-list'} motion primitives")
+        
+        for i, primitive in enumerate(motion_primitives):
+            if not os.environ.get('SUBPROCESS_MODE'):
+                print(f"[DEBUG] Primitive {i}: type={type(primitive)}, keys={list(primitive.keys()) if isinstance(primitive, dict) else 'N/A'}")
+                
+            if isinstance(primitive, dict):
+                # Convert compact field names to full names
+                converted_primitive = {}
+                
+                # Handle type field
+                converted_primitive['type'] = primitive.get('t', primitive.get('type', 'primary'))
+                if converted_primitive['type'] == 'p':
+                    converted_primitive['type'] = 'primary'
+                elif converted_primitive['type'] == 's':
+                    converted_primitive['type'] = 'speculative'
+                
+                # Handle coordinate fields
+                converted_primitive['start'] = primitive.get('s', primitive.get('start', [0, 0]))
+                converted_primitive['control1'] = primitive.get('c1', primitive.get('control1', [0, 0]))
+                converted_primitive['control2'] = primitive.get('c2', primitive.get('control2', [0, 0]))
+                converted_primitive['end'] = primitive.get('e', primitive.get('end', [0, 0]))
+                
+                # Handle numeric fields
+                converted_primitive['duration'] = primitive.get('d', primitive.get('duration', 0.16))
+                converted_primitive['velocity'] = primitive.get('v', primitive.get('velocity', 400))
+                converted_primitive['reasoning'] = primitive.get('r', primitive.get('reasoning', ''))
+                
+                # Check required fields
+                required_fields = ['start', 'control1', 'control2', 'end', 'duration']
+                missing_fields = [field for field in required_fields if field not in converted_primitive]
+                
+                if not missing_fields:
+                    # Clamp values to valid ranges - SLOW deliberate motion
+                    converted_primitive['duration'] = max(0.5, min(1.0, float(converted_primitive['duration'])))  # Minimum 0.5s
+                    converted_primitive['velocity'] = max(150, min(400, int(converted_primitive['velocity'])))  # Slower velocity
+                    
+                    # Ensure coordinates are within bounds and movements are small
+                    for coord_key in ['start', 'control1', 'control2', 'end']:
+                        if coord_key in converted_primitive and len(converted_primitive[coord_key]) >= 2:
+                            x = max(0, min(370, float(converted_primitive[coord_key][0])))  # 370 = 400 - 30 (square size)
+                            y = max(0, min(370, float(converted_primitive[coord_key][1])))
+                            converted_primitive[coord_key] = [x, y]
+                    
+                    # Validate movement distance (should be small steps)
+                    if 'start' in converted_primitive and 'end' in converted_primitive:
+                        start = converted_primitive['start']
+                        end = converted_primitive['end']
+                        distance = ((end[0] - start[0])**2 + (end[1] - start[1])**2)**0.5
+                        if distance > 60:  # Max 60 pixel movement per primitive
+                            if not os.environ.get('SUBPROCESS_MODE'):
+                                print(f"[DEBUG] Primitive {i} movement too large ({distance:.1f}px), clamping to smaller movement")
+                            # Clamp to smaller movement
+                            dx = end[0] - start[0]
+                            dy = end[1] - start[1]
+                            scale = 40 / distance  # Scale to max 40 pixels
+                            converted_primitive['end'] = [start[0] + dx * scale, start[1] + dy * scale]
+                            converted_primitive['control2'] = [start[0] + dx * scale * 0.7, start[1] + dy * scale * 0.7]
+                    
+                    validated_primitives.append(converted_primitive)
+                    if not os.environ.get('SUBPROCESS_MODE'):
+                        print(f"[DEBUG] Primitive {i} validated successfully")
+                else:
+                    if not os.environ.get('SUBPROCESS_MODE'):
+                        print(f"[DEBUG] Primitive {i} missing required fields: {missing_fields}")
+            else:
+                if not os.environ.get('SUBPROCESS_MODE'):
+                    print(f"[DEBUG] Primitive {i} is not a dict: {type(primitive)}")
+        
+        # Limit to 6 primitives max
+        validated_primitives = validated_primitives[:6]
+        
+        if not os.environ.get('SUBPROCESS_MODE'):
+            print(f"[DEBUG] Final validated primitives count: {len(validated_primitives)}")
+        
+        if not validated_primitives:
+            return None, "No valid motion primitives generated"
+        
+        return validated_primitives, overall_strategy
+        
+    except Exception as e:
+        if not os.environ.get('SUBPROCESS_MODE'):
+            print(f"Navigation error: {e}")
+        return None, f"Error: {str(e)}"
 
-
-# Backward compatibility function (deprecated)
+# Backward compatibility
 async def analyze(image_bytes: bytes, prompt: str) -> str:
-    """
-    Legacy function for backward compatibility.
-    Now redirects to navigation oracle.
-    """
-    direction, velocity, full_response = await next_move(image_bytes)
-    return f"Navigate: {direction} at velocity {velocity} - {full_response}" 
+    """Legacy function for backward compatibility"""
+    motion_primitives, strategy = await next_move(image_bytes)
+    if motion_primitives and len(motion_primitives) > 0:
+        first_primitive = motion_primitives[0]
+        end_pos = first_primitive.get('end', [0, 0])
+        velocity = first_primitive.get('velocity', 400)
+        return f"Navigate: to {end_pos} at velocity {velocity} - {strategy}"
+    return f"Strategy: {strategy}" 

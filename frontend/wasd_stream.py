@@ -1,10 +1,18 @@
-"""A PySide6 game widget with movable red square, live preview, and cloud navigation."""
+"""A PySide6 game widget with movable red square, live preview, and cloud navigation with W&B Weave observability."""
 
 import asyncio, sys, os, subprocess, tempfile, json
 from pathlib import Path
 from PySide6.QtCore import Qt, QRect, QTimer, QThread, Signal, QBuffer, QIODevice
 from PySide6.QtGui import QPainter, QColor, QKeyEvent
 from PySide6.QtWidgets import QApplication, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPlainTextEdit, QPushButton
+import weave
+
+# Helper function for conditional Weave decorators
+def weave_op():
+    """Conditional weave.op decorator - only applies if Weave is enabled"""
+    def decorator(func):
+        return weave.op()(func) if 'WEAVE_ENABLED' in globals() and WEAVE_ENABLED else func
+    return decorator
 
 # Load .env file to ensure GEMINI_API_KEY is available
 try:
@@ -15,6 +23,16 @@ try:
     print(f"[DEBUG] GEMINI_API_KEY present: {bool(os.getenv('GEMINI_API_KEY'))}")
 except ImportError:
     print("[DEBUG] python-dotenv not available, please install with: pip install python-dotenv")
+
+# Initialize W&B Weave for LLM observability (optional)
+try:
+    weave.init('gemini-navigation-game')
+    print("[DEBUG] W&B Weave initialized successfully - full observability enabled")
+    WEAVE_ENABLED = True
+except Exception as e:
+    print(f"[DEBUG] W&B Weave not available: {e}")
+    print("[DEBUG] Running without observability - core AI functionality still available")
+    WEAVE_ENABLED = False
 
 # Check if API key is available
 if not os.getenv('GEMINI_API_KEY'):
@@ -27,15 +45,17 @@ if not os.getenv('GEMINI_API_KEY'):
 sys.path.insert(0, str(Path(__file__).parent / 'capture_demo'))
 try:
     from live_api_client import next_move
-except ImportError:
+    print("[DEBUG] Successfully imported enhanced Gemini 1.5 Pro with W&B Weave tracking")
+except ImportError as e:
     next_move = None
+    print(f"[DEBUG] Failed to import live_api_client - Mock AI only. Error: {e}")
 
 
 # Removed sync_next_move - using NavigationWorker QThread instead
 
 
 class NavigationWorker(QThread):
-    move_suggested = Signal(str, int, str)  # direction, velocity, full_response
+    motion_primitives_ready = Signal(list, str)  # motion_primitives, overall_strategy
     analysis_error = Signal(str)
     
     def __init__(self, pixmap_bytes):
@@ -76,6 +96,7 @@ class NavigationWorker(QThread):
 import asyncio
 import sys
 import os
+os.environ['SUBPROCESS_MODE'] = '1'  # Suppress debug output
 sys.path.insert(0, r"{Path(__file__).parent / 'capture_demo'}")
 from live_api_client import next_move
 import json
@@ -85,11 +106,11 @@ async def main():
         image_bytes = f.read()
     
     try:
-        direction, velocity, response = await next_move(image_bytes)
-        result = {{"direction": direction, "velocity": velocity, "response": response}}
+        motion_primitives, strategy = await next_move(image_bytes)
+        result = {{"motion_primitives": motion_primitives, "strategy": strategy}}
         print(json.dumps(result))
     except Exception as e:
-        result = {{"direction": None, "velocity": 0, "response": f"Error: {{str(e)}}"}}
+        result = {{"motion_primitives": None, "strategy": f"Error: {{str(e)}}"}}
         print(json.dumps(result))
 
 if __name__ == "__main__":
@@ -110,7 +131,31 @@ if __name__ == "__main__":
                     try:
                         # Clean and validate the response
                         raw_output = result.stdout.strip()
-                        print(f"[DEBUG] Raw API output: {raw_output[:500]}...")  # Log first 500 chars
+                        
+                        # Remove any debug output contamination from the start
+                        json_start = raw_output.find('{"motion_primitives":')
+                        if json_start == -1:
+                            json_start = raw_output.find('{"')
+                        
+                        if json_start > 0:
+                            raw_output = raw_output[json_start:]
+                        
+                        # Find the end of the JSON object (matching braces)
+                        if raw_output.startswith('{'):
+                            brace_count = 0
+                            json_end = 0
+                            for i, char in enumerate(raw_output):
+                                if char == '{':
+                                    brace_count += 1
+                                elif char == '}':
+                                    brace_count -= 1
+                                    if brace_count == 0:
+                                        json_end = i + 1
+                                        break
+                            if json_end > 0:
+                                raw_output = raw_output[:json_end]
+                        
+                        print(f"[DEBUG] Cleaned JSON: {raw_output[:300]}...")  # Log first 300 chars
                         
                         # Try to parse JSON
                         response_data = json.loads(raw_output)
@@ -119,22 +164,86 @@ if __name__ == "__main__":
                         if not isinstance(response_data, dict):
                             raise ValueError(f"Expected dict, got {type(response_data)}")
                         
-                        direction = response_data.get("direction")
-                        velocity = response_data.get("velocity", 400)  # Default to 400 instead of 50
-                        full_response = response_data.get("response", "No response")
+                        motion_primitives = response_data.get("motion_primitives")
+                        strategy = response_data.get("strategy", "No strategy provided")
                         
-                        # Validate direction
-                        if direction not in ["Up", "Down", "Left", "Right", None]:
-                            print(f"[DEBUG] Invalid direction: {direction}, setting to None")
-                            direction = None
+                        # Handle case where motion primitives are embedded in strategy as JSON string
+                        if motion_primitives is None and isinstance(strategy, str):
+                            try:
+                                # Check if strategy looks like JSON but might be truncated
+                                print(f"[DEBUG] Strategy field length: {len(strategy)}")
+                                print(f"[DEBUG] Strategy ends with: ...{strategy[-50:]}")
+                                
+                                # Try to parse strategy as JSON to extract motion primitives
+                                print(f"[DEBUG] Attempting to parse strategy field as JSON")
+                                
+                                # If the JSON looks truncated, try to find complete motion primitives
+                                if strategy.endswith('"control2') or '"control2' in strategy[-100:]:
+                                    print(f"[DEBUG] Detected truncated JSON, attempting to extract complete primitives")
+                                    
+                                    # Find complete motion primitives before the truncation
+                                    strategy_fixed = strategy
+                                    if not strategy_fixed.endswith('}'):
+                                        # Try to find the last complete primitive
+                                        last_complete = strategy_fixed.rfind('}, {"type":')
+                                        if last_complete > 0:
+                                            strategy_fixed = strategy_fixed[:last_complete] + ']'
+                                            if '"motion_primitives":' in strategy_fixed:
+                                                strategy_fixed += ', "overall_strategy": "Extracted from truncated response"}'
+                                    
+                                    print(f"[DEBUG] Fixed strategy length: {len(strategy_fixed)}")
+                                    strategy_data = json.loads(strategy_fixed)
+                                else:
+                                    strategy_data = json.loads(strategy)
+                                    
+                                print(f"[DEBUG] Strategy JSON parsed successfully, keys: {list(strategy_data.keys())}")
+                                
+                                # Handle both compact and full field names
+                                if isinstance(strategy_data, dict):
+                                    # Try compact field names first, then full names
+                                    motion_primitives = strategy_data.get("m", strategy_data.get("motion_primitives"))
+                                    if motion_primitives:
+                                        strategy = strategy_data.get("st", strategy_data.get("overall_strategy", "Extracted from embedded JSON"))
+                                        print(f"[DEBUG] Extracted {len(motion_primitives) if isinstance(motion_primitives, list) else 'invalid'} motion primitives from strategy field")
+                                    else:
+                                        print(f"[DEBUG] Strategy data doesn't contain motion_primitives ('m' or 'motion_primitives') key")
+                                        print(f"[DEBUG] Available keys: {list(strategy_data.keys())}")
+                                else:
+                                    print(f"[DEBUG] Strategy data is not a dict: {type(strategy_data)}")
+                            except json.JSONDecodeError as e:
+                                print(f"[DEBUG] Strategy field JSON parsing failed: {e}")
+                                print(f"[DEBUG] Strategy content: {strategy[:200]}...")
+                                
+                                # Last resort: try to extract primitives with regex (both compact and full names)
+                                import re
+                                primitives_match = re.search(r'"m":\s*(\[.*?\])', strategy)
+                                if not primitives_match:
+                                    primitives_match = re.search(r'"motion_primitives":\s*(\[.*?\])', strategy)
+                                    
+                                if primitives_match:
+                                    try:
+                                        motion_primitives = json.loads(primitives_match.group(1))
+                                        print(f"[DEBUG] Extracted primitives with regex: {len(motion_primitives)} items")
+                                    except:
+                                        print(f"[DEBUG] Regex extraction also failed")
                         
-                        # Validate velocity
-                        if not isinstance(velocity, (int, float)) or velocity < 0:
-                            print(f"[DEBUG] Invalid velocity: {velocity}, setting to 400")
-                            velocity = 400
+                        # Debug: show what we extracted
+                        print(f"[DEBUG] Final motion_primitives type: {type(motion_primitives)}")
+                        if isinstance(motion_primitives, list):
+                            print(f"[DEBUG] Motion primitives count: {len(motion_primitives)}")
+                        elif motion_primitives is not None:
+                            print(f"[DEBUG] Motion primitives value: {motion_primitives}")
+                        
+                        # Validate motion primitives
+                        if motion_primitives is None:
+                            print(f"[DEBUG] No motion primitives received")
+                            motion_primitives = []
+                        elif not isinstance(motion_primitives, list):
+                            print(f"[DEBUG] Invalid motion primitives format: {type(motion_primitives)}")
+                            motion_primitives = []
                         
                         if not self._should_stop:
-                            self.move_suggested.emit(direction, velocity, full_response)
+                            self.motion_primitives_ready.emit(motion_primitives, strategy)
                             
                     except json.JSONDecodeError as e:
                         print(f"[DEBUG] JSON parsing failed: {e}")
@@ -196,10 +305,17 @@ class GameWidget(QWidget):
         # Create multiple blue obstacles with varying sizes
         self.blue_obstacles = self.generate_obstacles()
         
-        # Vectorized movement properties
+        # Vectorized movement properties (for manual control)
         self.velocity_x = 0.0
         self.velocity_y = 0.0
         self.speed = 500.0  # pixels per second (10x faster)
+        
+        # Bezier motion primitive system
+        self.motion_primitives = []  # Queue of motion primitives
+        self.current_primitive = None
+        self.primitive_start_time = 0
+        self.primitive_index = 0
+        
         self.movement_timer = QTimer()
         self.movement_timer.timeout.connect(self.update_position)
         self.movement_timer.start(16)  # ~60 FPS for smooth movement
@@ -276,29 +392,147 @@ class GameWidget(QWidget):
             abs(self.red_y - self.star_y) < self.square_size):
             self.move_star()
     
-    def update_position(self):
-        """Update position based on current velocity (smooth movement)"""
-        # Calculate time delta (16ms = ~0.016 seconds for 60 FPS)
-        dt = 0.016
+    def bezier_point(self, t, p0, p1, p2, p3):
+        """Calculate point on cubic bezier curve at parameter t (0-1)"""
+        u = 1 - t
+        tt = t * t
+        uu = u * u
+        uuu = uu * u
+        ttt = tt * t
         
-        # Update position based on velocity
-        self.red_x += self.velocity_x * dt
-        self.red_y += self.velocity_y * dt
+        x = uuu * p0[0] + 3 * uu * t * p1[0] + 3 * u * tt * p2[0] + ttt * p3[0]
+        y = uuu * p0[1] + 3 * uu * t * p1[1] + 3 * u * tt * p2[1] + ttt * p3[1]
+        
+        return (x, y)
+    
+    def execute_motion_primitives(self, primitives_data):
+        """Load new motion primitives with smooth transition from current motion"""
+        import time
+        current_time = time.time()
+        
+        # Stop manual movement when starting AI motion
+        self.velocity_x = 0.0
+        self.velocity_y = 0.0
+        
+        # Convert primitives data to motion primitive queue
+        new_primitives = []
+        for primitive in primitives_data:
+            motion_primitive = {
+                'type': primitive.get('type', 'primary'),
+                'start': primitive.get('start', [self.red_x, self.red_y]),
+                'control1': primitive.get('control1', [self.red_x, self.red_y]),
+                'control2': primitive.get('control2', [self.red_x, self.red_y]),
+                'end': primitive.get('end', [self.red_x, self.red_y]),
+                'duration': primitive.get('duration', 0.16),
+                'velocity': primitive.get('velocity', 400),
+                'reasoning': primitive.get('reasoning', '')
+            }
+            new_primitives.append(motion_primitive)
+        
+        # Handle smooth transition from current motion
+        if self.current_primitive and self.motion_primitives:
+            # Calculate remaining time in current primitive
+            elapsed = current_time - self.primitive_start_time
+            remaining_time = max(0, self.current_primitive['duration'] - elapsed)
+            
+            if remaining_time > 0.2:  # If more than 200ms left, create transition
+                # Create a transition primitive from current position to new plan start
+                if new_primitives:
+                    transition_primitive = {
+                        'type': 'transition',
+                        'start': [self.red_x, self.red_y],
+                        'control1': [self.red_x, self.red_y],
+                        'control2': new_primitives[0]['start'],
+                        'end': new_primitives[0]['start'],
+                        'duration': min(0.3, remaining_time * 0.5),  # Slightly longer transition for slow motion
+                        'velocity': 200,
+                        'reasoning': 'Smooth transition to new plan'
+                    }
+                    
+                    # Adjust first new primitive to start smoothly
+                    new_primitives[0]['start'] = new_primitives[0]['start']
+                    
+                    # Replace current primitives with transition + new plan
+                    self.motion_primitives = [transition_primitive] + new_primitives
+                    self.current_primitive = transition_primitive
+                    self.primitive_start_time = current_time
+                    self.primitive_index = 0
+                else:
+                    # No new primitives, just stop current motion
+                    self.motion_primitives = []
+                    self.current_primitive = None
+            else:
+                # Current primitive almost finished, start new plan immediately
+                self.motion_primitives = new_primitives
+                if new_primitives:
+                    self.current_primitive = new_primitives[0]
+                    self.primitive_start_time = current_time
+                    self.primitive_index = 0
+                    self.current_primitive['start'] = [self.red_x, self.red_y]
+        else:
+            # No current motion, start new plan immediately
+            self.motion_primitives = new_primitives
+            if new_primitives:
+                self.current_primitive = new_primitives[0]
+                self.primitive_start_time = current_time
+                self.primitive_index = 0
+                self.current_primitive['start'] = [self.red_x, self.red_y]
+    
+    def update_position(self):
+        """Update position based on bezier motion primitives or manual velocity"""
+        import time
+        current_time = time.time()
+        
+        # Execute bezier motion primitives if available
+        if self.current_primitive and self.motion_primitives:
+            primitive_elapsed = current_time - self.primitive_start_time
+            t = primitive_elapsed / self.current_primitive['duration']
+            
+            if t <= 1.0:
+                # Calculate bezier position
+                pos = self.bezier_point(
+                    t,
+                    self.current_primitive['start'],
+                    self.current_primitive['control1'],
+                    self.current_primitive['control2'],
+                    self.current_primitive['end']
+                )
+                self.red_x, self.red_y = pos
+            else:
+                # Move to next primitive
+                self.primitive_index += 1
+                if self.primitive_index < len(self.motion_primitives):
+                    self.current_primitive = self.motion_primitives[self.primitive_index]
+                    self.primitive_start_time = current_time
+                    
+                    # Adjust start position for seamless transition
+                    self.current_primitive['start'] = [self.red_x, self.red_y]
+                else:
+                    # All primitives completed
+                    self.current_primitive = None
+                    self.motion_primitives = []
+        else:
+            # Manual control mode (keyboard input)
+            dt = 0.016  # 16ms = ~0.016 seconds for 60 FPS
+            
+            # Update position based on velocity
+            self.red_x += self.velocity_x * dt
+            self.red_y += self.velocity_y * dt
+            
+            # Apply friction to gradually stop movement
+            friction = 0.85
+            self.velocity_x *= friction
+            self.velocity_y *= friction
+            
+            # Stop very slow movement to prevent jitter
+            if abs(self.velocity_x) < 1.0:
+                self.velocity_x = 0.0
+            if abs(self.velocity_y) < 1.0:
+                self.velocity_y = 0.0
         
         # Keep within bounds
         self.red_x = max(0, min(self.red_x, 400 - self.square_size))
         self.red_y = max(0, min(self.red_y, 400 - self.square_size))
-        
-        # Apply friction to gradually stop movement
-        friction = 0.85
-        self.velocity_x *= friction
-        self.velocity_y *= friction
-        
-        # Stop very slow movement to prevent jitter
-        if abs(self.velocity_x) < 1.0:
-            self.velocity_x = 0.0
-        if abs(self.velocity_y) < 1.0:
-            self.velocity_y = 0.0
         
         self.update()
         
@@ -394,10 +628,7 @@ class Main(QWidget):
         self.ai_control_button.clicked.connect(self.toggle_ai_control)
         right_layout.addWidget(self.ai_control_button)
         
-        # Mock AI Button (for testing when API quota is exceeded)
-        self.mock_ai_button = QPushButton("Start Mock AI")
-        self.mock_ai_button.clicked.connect(self.toggle_mock_ai)
-        right_layout.addWidget(self.mock_ai_button)
+
         
         right_widget = QWidget()
         right_widget.setLayout(right_layout)
@@ -410,7 +641,6 @@ class Main(QWidget):
         self.latest_direction = None
         self.latest_velocity = 400  # Default velocity for manual suggestions
         self.ai_running = False
-        self.mock_ai_running = False
         self.request_in_flight = False
         self.last_ai_request = 0  # Rate limiting
         self.consecutive_failures = 0  # Track consecutive API failures for auto-fallback
@@ -442,14 +672,17 @@ class Main(QWidget):
         import time
         current_time = time.time()
         
-        # Handle real AI requests
+        # Handle real AI requests - every 0.5 seconds for super fast AI thinking
         if (self.ai_running and not self.request_in_flight and 
             self.latest_pix is not None and 
-            current_time - self.last_ai_request >= 2):
+            current_time - self.last_ai_request >= 0.5):
             
             self.request_in_flight = True
             self.last_ai_request = current_time
             pixmap_bytes = self.pixmap_to_bytes(self.latest_pix)
+            
+            # Debug: show fast AI timing
+            print(f"[DEBUG] Fast AI request at {current_time:.2f}s (0.5s interval)")
             
             # Stop any existing AI worker to prevent conflicts
             if self.ai_worker and self.ai_worker.isRunning():
@@ -461,29 +694,14 @@ class Main(QWidget):
             
             # Create new AI worker with movement context
             self.ai_worker = NavigationWorker(pixmap_bytes)
-            self.ai_worker.move_suggested.connect(self.on_ai_move_complete)
+            self.ai_worker.motion_primitives_ready.connect(self.on_motion_primitives_ready)
             self.ai_worker.analysis_error.connect(self.on_ai_error)
             self.ai_worker.start()
             
-        # Handle mock AI requests (for testing when API quota is exceeded)
-        elif (self.mock_ai_running and not self.request_in_flight and 
-              self.latest_pix is not None and 
-              current_time - self.last_ai_request >= 1):  # Faster for mock
-            
-            self.request_in_flight = True
-            self.last_ai_request = current_time
-            
-            # Generate mock AI response
-            direction, velocity, reasoning = self.generate_mock_ai_response()
-            self.on_ai_move_complete(direction, velocity, reasoning)
+
     
     def toggle_ai_control(self):
         """Toggle AI control on/off"""
-        # Disable mock AI if it's running
-        if self.mock_ai_running:
-            self.mock_ai_running = False
-            self.mock_ai_button.setText("Start Mock AI")
-            
         self.ai_running = not self.ai_running
         if self.ai_running:
             self.ai_control_button.setText("Stop AI")
@@ -504,243 +722,9 @@ class Main(QWidget):
                 self.ai_worker.quit()
                 self.ai_worker.wait()
     
-    def toggle_mock_ai(self):
-        """Toggle mock AI control on/off (for testing when API quota exceeded)"""
-        # Disable real AI if it's running
-        if self.ai_running:
-            self.ai_running = False
-            self.ai_control_button.setText("Start AI")
-            if self.ai_worker and self.ai_worker.isRunning():
-                self.ai_worker.stop()
-                self.ai_worker.quit()
-                self.ai_worker.wait()
-                
-        self.mock_ai_running = not self.mock_ai_running
-        if self.mock_ai_running:
-            self.mock_ai_button.setText("Stop Mock AI")
-            self.stuck_counter = 0  # Reset stuck counter
-            self.last_stuck_position = None  # Reset stuck position
-            self.reply_box.appendPlainText("Mock AI Control: ENABLED - Simulated navigation (no API calls)")
-        else:
-            self.mock_ai_button.setText("Start Mock AI")
-            self.reply_box.appendPlainText("Mock AI Control: DISABLED")
-            self.request_in_flight = False
-            self.stuck_counter = 0  # Reset stuck counter
-            self.last_stuck_position = None  # Reset stuck position
+
     
-    def generate_mock_ai_response(self):
-        """Generate highly intelligent AI response with enhanced obstacle avoidance and velocity calibration"""
-        import math, random
-        
-        # Get current positions
-        red_x, red_y = self.game_widget.red_x, self.game_widget.red_y
-        star_x, star_y = self.game_widget.star_x, self.game_widget.star_y
-        obstacles = self.game_widget.blue_obstacles
-        
-        # PRIORITY 1: Check if we need to backtrack due to collision or being stuck
-        if self.should_backtrack(red_x, red_y):
-            if self.previous_direction and self.previous_velocity:
-                # Simple backtrack: exact same motion but opposite direction
-                backtrack_direction = self.get_opposite_direction(self.previous_direction)
-                backtrack_velocity = self.previous_velocity  # Use EXACT same velocity as last step
-                
-                collision_reason = ""
-                if self.is_colliding_with_obstacles(red_x, red_y):
-                    collision_reason = "COLLISION DETECTED with blue obstacle"
-                elif self.is_stuck_at_boundary(red_x, red_y):
-                    collision_reason = "BOUNDARY COLLISION at frame edge"
-                else:
-                    collision_reason = f"STUCK in same area for {self.stuck_counter} moves"
-                
-                reasoning = f"BACKTRACK: {collision_reason}. Reversing last move: {self.previous_direction}@{self.previous_velocity} -> {backtrack_direction}@{backtrack_velocity} (exact opposite motion)."
-                
-                # Update tracking
-                self.previous_direction = backtrack_direction
-                self.previous_velocity = backtrack_velocity
-                self.previous_red_x = red_x
-                self.previous_red_y = red_y
-                
-                return backtrack_direction, backtrack_velocity, reasoning
-            else:
-                # No previous move to backtrack, use emergency escape
-                # Find direction away from obstacles or boundaries
-                escape_direction = "Up"  # Default
-                if red_x <= 15:  # Left boundary
-                    escape_direction = "Right"
-                elif red_x >= 365:  # Right boundary
-                    escape_direction = "Left"
-                elif red_y <= 15:  # Top boundary
-                    escape_direction = "Down"
-                elif red_y >= 365:  # Bottom boundary
-                    escape_direction = "Up"
-                
-                reasoning = f"EMERGENCY ESCAPE: No previous move to backtrack, using {escape_direction} to escape boundary/collision."
-                return escape_direction, 500, reasoning
-        
-        # Track movement for momentum analysis
-        movement_delta_x = red_x - self.previous_red_x
-        movement_delta_y = red_y - self.previous_red_y
-        movement_speed = math.sqrt(movement_delta_x**2 + movement_delta_y**2)
-        
-        # Update movement history (keep last 5 moves)
-        self.movement_history.append((self.previous_direction, movement_speed))
-        if len(self.movement_history) > 5:
-            self.movement_history.pop(0)
-        
-        # Calculate vector to target
-        to_star_x = star_x - red_x
-        to_star_y = star_y - red_y
-        dist_to_star = math.sqrt(to_star_x**2 + to_star_y**2)
-        
-        # Advanced obstacle analysis - calculate threat levels for all obstacles
-        obstacle_threats = []
-        for obstacle in obstacles:
-            ox, oy, ow, oh = obstacle
-            
-            # Calculate distance to closest point on rectangle
-            closest_x = max(ox, min(red_x, ox + ow))
-            closest_y = max(oy, min(red_y, oy + oh))
-            dist = math.sqrt((red_x - closest_x)**2 + (red_y - closest_y)**2)
-            
-            # Calculate threat level based on distance and size
-            threat_level = max(0, 150 - dist) * (ow + oh) / 100  # Bigger obstacles = more threatening
-            
-            obstacle_threats.append({
-                'obstacle': obstacle,
-                'distance': dist,
-                'threat_level': threat_level,
-                'center_x': ox + ow/2,
-                'center_y': oy + oh/2
-            })
-        
-        # Sort by threat level (highest threat first)
-        obstacle_threats.sort(key=lambda x: x['threat_level'], reverse=True)
-        
-        # Analyze directional safety with fine-grained collision detection
-        direction_analysis = {}
-        test_distances = [30, 60, 90]  # Test at multiple distances ahead
-        
-        for test_dir in ["Up", "Down", "Left", "Right"]:
-            safety_score = 100  # Start with perfect safety
-            clear_distance = 200  # How far we can see ahead
-            
-            for test_dist in test_distances:
-                test_x, test_y = red_x, red_y
-                
-                if test_dir == "Up":
-                    test_y -= test_dist
-                elif test_dir == "Down":
-                    test_y += test_dist
-                elif test_dir == "Left":
-                    test_x -= test_dist
-                elif test_dir == "Right":
-                    test_x += test_dist
-                
-                # Check boundaries
-                if (test_x < 15 or test_x > 370 or test_y < 15 or test_y > 370):
-                    safety_score -= 50  # Heavy penalty for approaching walls
-                    clear_distance = min(clear_distance, test_dist)
-                
-                # Check all obstacles
-                for threat in obstacle_threats:
-                    ox, oy, ow, oh = threat['obstacle']
-                    
-                    # Use expanded collision detection with safety margins
-                    margin = 25  # Safety margin around obstacles
-                    if (test_x < ox + ow + margin and test_x + self.game_widget.square_size > ox - margin and
-                        test_y < oy + oh + margin and test_y + self.game_widget.square_size > oy - margin):
-                        
-                        # Heavy penalty for collision path
-                        safety_score -= 40
-                        clear_distance = min(clear_distance, test_dist)
-                        
-                        # Additional penalty based on obstacle size and threat level
-                        safety_score -= threat['threat_level'] * 0.5
-            
-            # Bonus for moving toward star
-            if test_dir == "Up" and to_star_y < 0:
-                safety_score += 15
-            elif test_dir == "Down" and to_star_y > 0:
-                safety_score += 15
-            elif test_dir == "Left" and to_star_x < 0:
-                safety_score += 15
-            elif test_dir == "Right" and to_star_x > 0:
-                safety_score += 15
-            
-            # Penalty for oscillating (changing direction too often)
-            if (len(self.movement_history) >= 2 and 
-                self.previous_direction and 
-                self.get_opposite_direction(test_dir) == self.previous_direction):
-                safety_score -= 10
-            
-            direction_analysis[test_dir] = {
-                'safety_score': safety_score,
-                'clear_distance': clear_distance
-            }
-        
-        # Select best direction based on safety analysis
-        best_direction = max(direction_analysis.keys(), key=lambda d: direction_analysis[d]['safety_score'])
-        best_analysis = direction_analysis[best_direction]
-        
-        # Advanced velocity calibration based on multiple factors
-        base_velocity = 400
-        
-        # Factor 1: Distance to closest obstacle (more conservative in medium range)
-        if obstacle_threats:
-            closest_dist = obstacle_threats[0]['distance']
-            if closest_dist < 30:
-                velocity_factor = 0.4  # Very slow when very close
-            elif closest_dist < 60:
-                velocity_factor = 0.6  # Slow when close
-            elif closest_dist < 100:
-                velocity_factor = 0.7  # Conservative when moderate distance
-            elif closest_dist < 140:
-                velocity_factor = 0.9  # Careful when medium distance
-            else:
-                velocity_factor = 1.3  # Fast when far
-        else:
-            velocity_factor = 1.3  # Fast when no obstacles
-        
-        # Factor 2: Path clearance ahead
-        clearance_factor = min(best_analysis['clear_distance'] / 100, 1.5)
-        
-        # Factor 3: Distance to star (slow down when approaching)
-        if dist_to_star < 50:
-            target_factor = 0.6  # Slow approach
-        elif dist_to_star < 100:
-            target_factor = 0.8  # Moderate approach
-        else:
-            target_factor = 1.2  # Normal speed
-        
-        # Factor 4: Previous movement momentum (maintain smooth movement)
-        if self.previous_direction == best_direction and movement_speed > 0:
-            momentum_factor = 1.1  # Slight boost for continuing same direction
-        else:
-            momentum_factor = 1.0
-        
-        # Calculate final velocity
-        velocity = int(base_velocity * velocity_factor * clearance_factor * target_factor * momentum_factor)
-        velocity = max(200, min(900, velocity))  # Clamp to effective range
-        
-        # Generate intelligent reasoning
-        safety_level = "High" if best_analysis['safety_score'] > 80 else "Medium" if best_analysis['safety_score'] > 40 else "Low"
-        
-        if obstacle_threats and obstacle_threats[0]['threat_level'] > 50:
-            reasoning = f"OBSTACLE AVOIDANCE: Closest blue obstacle at {obstacle_threats[0]['distance']:.0f} pixels. Safety level: {safety_level}. Choosing {best_direction} direction with carefully calibrated velocity {velocity} to avoid collision while progressing toward star."
-        elif dist_to_star < 80:
-            reasoning = f"PRECISION APPROACH: Yellow star {dist_to_star:.0f} pixels away. Using {best_direction} direction with controlled velocity {velocity} for accurate targeting."
-        else:
-            reasoning = f"NAVIGATION: Clear path ahead. Moving {best_direction} at velocity {velocity} toward star. Safety score: {best_analysis['safety_score']:.0f}/100."
-        
-        # Update tracking variables
-        self.previous_direction = best_direction
-        self.previous_velocity = velocity
-        self.previous_red_x = red_x
-        self.previous_red_y = red_y
-        
-        full_reasoning = f"{reasoning}\nDirection: {best_direction}\nVelocity: {velocity}"
-        
-        return best_direction, velocity, full_reasoning
+
     
     def get_opposite_direction(self, direction):
         """Get the opposite direction to detect oscillation"""
@@ -768,6 +752,7 @@ class Main(QWidget):
         return (x <= margin or x >= 400 - self.game_widget.square_size - margin or
                 y <= margin or y >= 400 - self.game_widget.square_size - margin)
     
+    @weave_op()
     def should_backtrack(self, red_x, red_y):
         """Determine if we should backtrack instead of finding new direction"""
         # Check if currently colliding with obstacles
@@ -790,50 +775,61 @@ class Main(QWidget):
         
         return False
     
-    def on_ai_move_complete(self, direction, velocity, full_response):
-        """Handle AI move completion with full LLM response including velocity"""
+    @weave_op()
+    def on_motion_primitives_ready(self, motion_primitives, strategy):
+        """Handle AI motion primitives completion with bezier curve planning"""
         self.request_in_flight = False
         self.consecutive_failures = 0  # Reset failure counter on successful response
         
-        if self.ai_running or self.mock_ai_running:  # Move if either AI mode is running
-            # Display the full LLM response
-            self.reply_box.appendPlainText(f"Response: {full_response}")
+        if self.ai_running:  # Execute motion if AI is running
+            # Display the overall strategy
+            self.reply_box.appendPlainText(f"Strategy: {strategy}")
             
-            if direction and direction in ["Up", "Down", "Left", "Right"]:
-                self.reply_box.appendPlainText(f"Moving: {direction} at velocity {velocity}")
+            if motion_primitives and len(motion_primitives) > 0:
+                # Display motion primitive summary
+                num_primitives = len(motion_primitives)
+                primary_count = sum(1 for p in motion_primitives if p.get('type') == 'primary')
+                speculative_count = num_primitives - primary_count
+                
+                # Calculate total execution time
+                total_time = sum(p.get('duration', 0.6) for p in motion_primitives)
+                
+                self.reply_box.appendPlainText(f"Executing {num_primitives} SLOW motion primitives ({total_time:.1f}s total):")
+                self.reply_box.appendPlainText(f"  • {primary_count} primary paths")
+                self.reply_box.appendPlainText(f"  • {speculative_count} speculative paths")
+                
+                # Show first few primitive details with movement distance
+                for i, primitive in enumerate(motion_primitives[:3]):
+                    reasoning = primitive.get('reasoning', 'No reasoning')[:30] + "..."
+                    duration = primitive.get('duration', 0.16)
+                    
+                    # Calculate movement distance
+                    start = primitive.get('start', [0, 0])
+                    end = primitive.get('end', [0, 0])
+                    distance = ((end[0] - start[0])**2 + (end[1] - start[1])**2)**0.5
+                    
+                    self.reply_box.appendPlainText(f"  {i+1}: {reasoning} ({duration:.2f}s, {distance:.0f}px)")
+                    if distance > 50:  # Warn about large movements
+                        self.reply_box.appendPlainText(f"      ⚠️ Large movement: {start} → {end}")
+                
                 self.reply_box.appendPlainText("-" * 40)
                 self.reply_box.ensureCursorVisible()
                 
-                # Update movement tracking (for both real and mock AI)
-                if not self.mock_ai_running:  # Only update for real AI - mock AI updates itself
-                    self.previous_direction = direction
-                    self.previous_velocity = velocity
+                # Update movement tracking
+                if motion_primitives:
+                    first_primitive = motion_primitives[0]
                     self.previous_red_x = self.game_widget.red_x
                     self.previous_red_y = self.game_widget.red_y
                 
-                # Execute the move with AI-specified velocity
-                self.execute_ai_move(direction, velocity)
+                # Execute the motion primitives
+                self.execute_motion_primitives(motion_primitives)
             else:
-                # If real AI fails, immediately try mock AI for this step
-                if self.ai_running and not self.mock_ai_running:
-                    self.reply_box.appendPlainText("Invalid direction from real AI, trying Mock AI...")
-                    direction, velocity, reasoning = self.generate_mock_ai_response()
-                    if direction:
-                        self.reply_box.appendPlainText(f"Mock AI: Moving {direction} at velocity {velocity}")
-                        self.reply_box.appendPlainText("-" * 40)
-                        self.reply_box.ensureCursorVisible()
-                        self.execute_ai_move(direction, velocity)
-                    else:
-                        self.reply_box.appendPlainText("No valid move available, staying stationary")
-                        self.reply_box.appendPlainText("-" * 40)
-                        self.reply_box.ensureCursorVisible()
-                else:
-                    self.reply_box.appendPlainText("No valid move available, staying stationary")
-                    self.reply_box.appendPlainText("-" * 40)
-                    self.reply_box.ensureCursorVisible()
+                self.reply_box.appendPlainText("No valid motion primitives from AI, staying stationary")
+                self.reply_box.appendPlainText("-" * 40)
+                self.reply_box.ensureCursorVisible()
     
     def on_ai_error(self, error):
-        """Handle AI error with enhanced error handling and auto-fallback"""
+        """Handle AI error with enhanced error handling"""
         self.request_in_flight = False
         self.consecutive_failures += 1
         
@@ -852,47 +848,26 @@ class Main(QWidget):
             user_message = error_messages.get(error, f"Unknown error: {error}")
             self.reply_box.appendPlainText(f"Error: {user_message}")
             
-            # Auto-switch to Mock AI after consecutive failures
+            # Auto-disable AI after too many consecutive failures
             if self.consecutive_failures >= self.max_consecutive_failures:
                 self.reply_box.appendPlainText(f"⚠️ {self.consecutive_failures} consecutive failures detected!")
-                self.reply_box.appendPlainText("Auto-switching to Mock AI for continued navigation...")
+                self.reply_box.appendPlainText("Auto-disabling AI due to persistent errors.")
+                self.reply_box.appendPlainText("Please check your API key and network connection.")
                 self.reply_box.appendPlainText("-" * 40)
                 
-                # Switch to mock AI automatically
+                # Disable AI automatically
                 self.ai_running = False
                 self.ai_control_button.setText("Start AI")
-                self.mock_ai_running = True
-                self.mock_ai_button.setText("Stop Mock AI")
                 self.consecutive_failures = 0  # Reset counter
-                
-                # Immediately generate a mock move so no step is wasted
-                direction, velocity, reasoning = self.generate_mock_ai_response()
-                self.on_ai_move_complete(direction, velocity, f"Mock AI (Auto-fallback): {reasoning}")
-                
-            elif error in ["RATE_LIMIT", "EVENT_LOOP_ERROR"]:
-                # Immediate switch for critical errors
-                self.reply_box.appendPlainText("Critical error detected - switching to Mock AI...")
-                self.reply_box.appendPlainText("-" * 40)
-                
-                # Switch to mock AI automatically
-                self.ai_running = False
-                self.ai_control_button.setText("Start AI")
-                self.mock_ai_running = True
-                self.mock_ai_button.setText("Stop Mock AI")
-                self.consecutive_failures = 0  # Reset counter
-                
-                # Immediately generate a mock move so no step is wasted
-                direction, velocity, reasoning = self.generate_mock_ai_response()
-                self.on_ai_move_complete(direction, velocity, f"Mock AI (Critical fallback): {reasoning}")
                 
             else:
                 self.reply_box.appendPlainText(f"Staying stationary until next valid response... (Failure {self.consecutive_failures}/{self.max_consecutive_failures})")
                 self.reply_box.appendPlainText("-" * 40)
     
-    def execute_ai_move(self, direction, velocity=None):
-        """Execute AI move using the auto_move method with specified velocity"""
-        if direction in ["Up", "Down", "Left", "Right"]:
-            self.game_widget.auto_move(direction, velocity)
+    def execute_motion_primitives(self, motion_primitives):
+        """Execute AI motion primitives using bezier curves"""
+        if motion_primitives:
+            self.game_widget.execute_motion_primitives(motion_primitives)
     
     def pixmap_to_bytes(self, pixmap):
         buffer = QBuffer()
@@ -954,11 +929,20 @@ if __name__ == "__main__":
 
 """
 Run:
-pip install PySide6 google-genai
+pip install PySide6 google-genai weave pydantic
 export GEMINI_API_KEY="YOUR-KEY"
 python wasd_stream.py
 
 Controls: WASD/arrows=Manual, SPACE=Cloud guidance, ENTER=Auto-move
+
+W&B Weave Integration (Complete LLM Observability):
+- Real-time tracking of all AI function calls and responses
+- Gemini 1.5 Pro with maximum token support (1M+ tokens)
+- Structured JSON output with Pydantic validation
+- Complete trace visualization in W&B dashboard
+- Debug AI reasoning and decision-making process
+- Performance metrics and evaluation capabilities
+- Access dashboard: https://wandb.ai/your-username/gemini-navigation-game
 
 Enhanced Error Handling (Forever Fix):
 - Detailed debug logging for all API responses
@@ -978,4 +962,11 @@ Anti-Stuck Backtracking System:
 - Emergency escape when no previous move exists
 - More conservative velocity calibration in medium range (60-140 pixels)
 - Automatic stuck counter reset when AI is toggled
+
+AI Model Features:
+- Gemini 1.5 Pro: 1,048,576 token context window
+- Structured JSON output for reliable parsing
+- Enhanced obstacle avoidance prompts
+- Velocity calibration: 200-900 range with conservative medium speeds
+- Real-time observability with W&B Weave tracking
 """ 
