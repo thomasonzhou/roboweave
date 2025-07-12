@@ -13,8 +13,9 @@ from live_api_client import next_move
 async def main(img):
     """Main function to test navigation oracle."""
     t0 = time.perf_counter()
-    direction = await next_move(Path(img).read_bytes())
+    direction, full_response = await next_move(Path(img).read_bytes())
     print(f"\n### Navigation Oracle replied in {1000*(time.perf_counter()-t0):.1f} ms ###\n")
+    print(f"Full AI response: {full_response}")
     print(f"Recommended direction: {direction}")
     
     # Verify we got a valid direction
