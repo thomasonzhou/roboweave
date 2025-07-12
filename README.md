@@ -1,4 +1,4 @@
-# RoboWeave: Prompt-Based Multimodal Control of Embedded Robotic Systems
+# RoboWeave: Prompt-Based Multimodal Control of Embedded Agents
 
 **Daniel Siegel, Thomason Zhou**  
 _Weave Hackathon 2025_
