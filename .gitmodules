@@ -1,0 +1,3 @@
+[submodule "frontend/live_console"]
+	path = frontend/live_console
+	url = https://github.com/google-gemini/live-api-web-console.git
