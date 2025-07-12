@@ -30,7 +30,7 @@ The core objective of RoboWeave is to enable robotic actuation from semantically
 
 4. **Backend Execution**
    - Commands are translated into MCP format (Motion Control Protocol).
-   - Sent via an A2A (API-to-Actuator) stack to the robot controller.
+   - Sent via an A2A (agent-to-agent) stack to the robot controller.
    - Execution is monitored for safety, validity, and alignment with prompt expectations.
 
 ## Key Features
