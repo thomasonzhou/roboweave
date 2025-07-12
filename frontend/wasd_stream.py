@@ -14,15 +14,15 @@ try:
     print(f"[DEBUG] Loaded .env from {env_path}")
     print(f"[DEBUG] GEMINI_API_KEY present: {bool(os.getenv('GEMINI_API_KEY'))}")
 except ImportError:
-    print("[DEBUG] python-dotenv not available, setting API key directly")
-    # Set the API key directly if dotenv loading fails
-    os.environ['GEMINI_API_KEY'] = 'AIzaSyCSgGMMVyBaW6KUi5LyZ3JNZsRt0MwY2Z4'
-    print(f"[DEBUG] GEMINI_API_KEY set directly: {bool(os.getenv('GEMINI_API_KEY'))}")
+    print("[DEBUG] python-dotenv not available, please install with: pip install python-dotenv")
 
-# Double-check the API key is available
+# Check if API key is available
 if not os.getenv('GEMINI_API_KEY'):
-    print("[DEBUG] GEMINI_API_KEY still not found, setting fallback")
-    os.environ['GEMINI_API_KEY'] = 'AIzaSyCSgGMMVyBaW6KUi5LyZ3JNZsRt0MwY2Z4'
+    print("[ERROR] GEMINI_API_KEY not found!")
+    print("[ERROR] Please create a .env file in the frontend directory with:")
+    print("[ERROR] GEMINI_API_KEY=your_api_key_here")
+    print("[ERROR] Or set the environment variable directly.")
+    # Don't hardcode the API key - force user to set it properly
 
 sys.path.insert(0, str(Path(__file__).parent / 'capture_demo'))
 try:
