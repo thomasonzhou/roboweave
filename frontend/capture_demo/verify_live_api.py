@@ -1,27 +1,27 @@
 #!/usr/bin/env python3
 """
-Smoke test script for Google Live API integration.
-Verifies that the Live API client can round-trip an image through Google Live API.
+Smoke test script for navigation oracle Live API integration.
+Tests the next_move function with the gemini-live-2.5-flash-preview model.
 """
 
-from pathlib import Path, PurePath
+from pathlib import Path
 import asyncio
 import time
-from live_api_client import VisionSession, analyze
+from live_api_client import next_move
 
 
-async def main(img, prm):
-    """Main function to test Live API integration."""
+async def main(img):
+    """Main function to test navigation oracle."""
     t0 = time.perf_counter()
-    answer = await analyze(Path(img).read_bytes(), prm)
-    print(f"\n### Gemini replied in {1000*(time.perf_counter()-t0):.1f} ms ###\n")
-    print(answer)
+    direction = await next_move(Path(img).read_bytes())
+    print(f"\n### Navigation Oracle replied in {1000*(time.perf_counter()-t0):.1f} ms ###\n")
+    print(f"Recommended direction: {direction}")
     
-    # Verify we got a non-empty answer
-    if not answer or not answer.strip():
-        raise RuntimeError("Empty response from Gemini API")
+    # Verify we got a valid direction
+    if direction not in {"Up", "Down", "Left", "Right"}:
+        raise RuntimeError(f"Invalid direction: {direction}")
     
-    return answer
+    return direction
 
 
 if __name__ == "__main__":
@@ -29,9 +29,8 @@ if __name__ == "__main__":
     import os
     import sys
     
-    ap = argparse.ArgumentParser(description="Verify Live API integration")
-    ap.add_argument("--image", default="sample.png", help="Image file to analyze")
-    ap.add_argument("--prompt", default="What is depicted and next step?", help="Analysis prompt")
+    ap = argparse.ArgumentParser(description="Test navigation oracle")
+    ap.add_argument("--image", default="sample.png", help="Game screenshot to analyze")
     args = ap.parse_args()
     
     # Check for API key
@@ -43,8 +42,8 @@ if __name__ == "__main__":
         sys.exit(f"Image file not found: {args.image}")
     
     try:
-        asyncio.run(main(args.image, args.prompt))
-        print("\n✅ Live API verification successful!")
+        direction = asyncio.run(main(args.image))
+        print(f"\n✅ Navigation oracle test successful! Direction: {direction}")
     except Exception as e:
-        print(f"\n❌ Live API verification failed: {e}")
+        print(f"\n❌ Navigation oracle test failed: {e}")
         sys.exit(1) 

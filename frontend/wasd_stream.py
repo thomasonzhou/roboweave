@@ -1,22 +1,20 @@
-"""A PySide6 game widget with movable red square, live preview, and Gemini Vision analysis."""
+"""A PySide6 game widget with movable red square, live preview, and Gemini navigation oracle."""
 
-import asyncio
-import sys
+import asyncio, sys
 from pathlib import Path
 from PySide6.QtCore import Qt, QRect, QTimer, QThread, pyqtSignal, QBuffer, QIODevice
 from PySide6.QtGui import QPainter, QColor, QKeyEvent
-from PySide6.QtWidgets import (QApplication, QWidget, QHBoxLayout, QVBoxLayout, 
-                               QLabel, QPlainTextEdit)
+from PySide6.QtWidgets import QApplication, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPlainTextEdit
 
 sys.path.insert(0, str(Path(__file__).parent / 'capture_demo'))
 try:
-    from live_api_client import analyze
+    from live_api_client import next_move
 except ImportError:
-    analyze = None
+    next_move = None
 
 
-class AnalysisWorker(QThread):
-    analysis_complete = pyqtSignal(str)
+class NavigationWorker(QThread):
+    move_suggested = pyqtSignal(str)
     analysis_error = pyqtSignal(str)
     
     def __init__(self, pixmap_bytes):
@@ -25,17 +23,15 @@ class AnalysisWorker(QThread):
         
     def run(self):
         try:
-            if analyze is None:
-                self.analysis_error.emit("Live API client not available. Check capture_demo setup.")
+            if next_move is None:
+                self.analysis_error.emit("Navigation oracle not available. Check capture_demo setup.")
                 return
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            result = loop.run_until_complete(
-                analyze(self.pixmap_bytes, "What is depicted and what's the next step?")
-            )
-            self.analysis_complete.emit(result)
+            direction = loop.run_until_complete(next_move(self.pixmap_bytes))
+            self.move_suggested.emit(direction)
         except Exception as e:
-            self.analysis_error.emit(f"Analysis failed: {str(e)}")
+            self.analysis_error.emit(f"Navigation oracle failed: {str(e)}")
         finally:
             if 'loop' in locals():
                 loop.close()
@@ -62,7 +58,6 @@ class GameWidget(QWidget):
     def keyPressEvent(self, event: QKeyEvent):
         key = event.key()
         old_x, old_y = self.red_x, self.red_y
-        
         if key == Qt.Key_W or key == Qt.Key_Up:
             self.red_y -= self.step_size
         elif key == Qt.Key_S or key == Qt.Key_Down:
@@ -74,10 +69,23 @@ class GameWidget(QWidget):
         else:
             super().keyPressEvent(event)
             return
-        
         self.red_x = max(0, min(self.red_x, 400 - self.square_size))
         self.red_y = max(0, min(self.red_y, 400 - self.square_size))
-        
+        if (self.red_x, self.red_y) != (old_x, old_y):
+            self.update()
+    
+    def auto_move(self, direction):
+        old_x, old_y = self.red_x, self.red_y
+        if direction == "Up":
+            self.red_y -= self.step_size
+        elif direction == "Down":
+            self.red_y += self.step_size
+        elif direction == "Left":
+            self.red_x -= self.step_size
+        elif direction == "Right":
+            self.red_x += self.step_size
+        self.red_x = max(0, min(self.red_x, 400 - self.square_size))
+        self.red_y = max(0, min(self.red_y, 400 - self.square_size))
         if (self.red_x, self.red_y) != (old_x, old_y):
             self.update()
 
@@ -85,7 +93,7 @@ class GameWidget(QWidget):
 class Main(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("GameWidget with Live Preview & Gemini Analysis")
+        self.setWindowTitle("GameWidget with Navigation Oracle")
         self.setFixedSize(800, 600)
         
         main_layout = QHBoxLayout()
@@ -107,7 +115,7 @@ class Main(QWidget):
         self.reply_box = QPlainTextEdit()
         self.reply_box.setReadOnly(True)
         self.reply_box.setFixedHeight(200)
-        self.reply_box.setPlaceholderText("Press SPACE to analyze current view with Gemini...")
+        self.reply_box.setPlaceholderText("Press SPACE for AI navigation guidance, ENTER for auto-move...")
         
         right_layout.addWidget(self.preview_label)
         right_layout.addWidget(self.reply_box)
@@ -120,12 +128,13 @@ class Main(QWidget):
         self.setLayout(main_layout)
         
         self.latest_pix = None
+        self.latest_direction = None
         
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_preview)
         self.timer.start(100)
         
-        self.analysis_worker = None
+        self.nav_worker = None
         self.game_widget.setFocus()
     
     def update_preview(self):
@@ -138,33 +147,38 @@ class Main(QWidget):
         pixmap.save(buffer, "PNG")
         return buffer.data().data()
     
-    def analyze_current_view(self):
+    def get_navigation_guidance(self):
         if self.latest_pix is None:
             self.reply_box.appendPlainText("No image to analyze yet...")
             return
-            
-        if self.analysis_worker and self.analysis_worker.isRunning():
-            self.reply_box.appendPlainText("Analysis already in progress...")
+        if self.nav_worker and self.nav_worker.isRunning():
+            self.reply_box.appendPlainText("Navigation analysis already in progress...")
             return
-            
         pixmap_bytes = self.pixmap_to_bytes(self.latest_pix)
-        self.analysis_worker = AnalysisWorker(pixmap_bytes)
-        self.analysis_worker.analysis_complete.connect(self.on_analysis_complete)
-        self.analysis_worker.analysis_error.connect(self.on_analysis_error)
-        self.analysis_worker.start()
-        self.reply_box.appendPlainText("🤔 Analyzing with Gemini...")
+        self.nav_worker = NavigationWorker(pixmap_bytes)
+        self.nav_worker.move_suggested.connect(self.on_move_suggested)
+        self.nav_worker.analysis_error.connect(self.on_navigation_error)
+        self.nav_worker.start()
+        self.reply_box.appendPlainText("🧭 Consulting navigation oracle...")
     
-    def on_analysis_complete(self, result):
-        self.reply_box.appendPlainText(f"\n🤖 Gemini says:\n{result}\n" + "="*50)
+    def on_move_suggested(self, direction):
+        self.latest_direction = direction
+        self.reply_box.appendPlainText(f"\n🎯 Oracle suggests: {direction}")
+        self.reply_box.appendPlainText("Press ENTER to auto-move or continue manually with WASD")
+        self.reply_box.appendPlainText("="*50)
         self.reply_box.ensureCursorVisible()
     
-    def on_analysis_error(self, error):
-        self.reply_box.appendPlainText(f"\n❌ Error: {error}\n" + "="*50)
+    def on_navigation_error(self, error):
+        self.reply_box.appendPlainText(f"\n❌ Navigation error: {error}\n" + "="*50)
         self.reply_box.ensureCursorVisible()
     
     def keyPressEvent(self, event: QKeyEvent):
         if event.key() == Qt.Key_Space:
-            self.analyze_current_view()
+            self.get_navigation_guidance()
+        elif event.key() == Qt.Key_Return and self.latest_direction:
+            self.game_widget.auto_move(self.latest_direction)
+            self.reply_box.appendPlainText(f"🤖 Auto-moved: {self.latest_direction}")
+            self.latest_direction = None
         else:
             self.game_widget.keyPressEvent(event)
 
@@ -178,11 +192,9 @@ if __name__ == "__main__":
 
 """
 Run:
-pip install PySide6 google-generativeai
+pip install PySide6 google-genai
 export GEMINI_API_KEY="YOUR-KEY"
 python wasd_stream.py
 
-Controls:
-- WASD/arrows: Move red square
-- SPACE: Analyze current view with Gemini
+Controls: WASD/arrows=Manual, SPACE=AI guidance, ENTER=Auto-move
 """ 

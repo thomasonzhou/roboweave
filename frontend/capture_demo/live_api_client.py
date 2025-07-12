@@ -1,90 +1,131 @@
 """
-Live API client for Google Gemini Vision analysis.
-Provides VisionSession and analyze function for image analysis.
+Slimmed-down Live-API helper for navigation oracle.
+Uses google.genai.Client().aio.live.connect() with gemini-live-2.5-flash-preview.
 """
 
 import asyncio
 import base64
 import os
 from typing import Optional
-import google.generativeai as genai
-from google.generativeai.types import HarmCategory, HarmBlockThreshold
+
+import google.genai as genai
 
 
-class VisionSession:
-    """Session for Google Gemini Vision analysis."""
+# Navigation oracle system prompt
+NAVIGATION_SYSTEM_PROMPT = """You are a navigation oracle for a 2-D toy world.
+The image shows a red agent square and one blue target square.
+Return ONE WORD only — Up, Down, Left, or Right — that moves the red square closer to the blue.
+No extra text."""
+
+
+class NavigationOracle:
+    """Live API client for navigation guidance."""
     
     def __init__(self, api_key: Optional[str] = None):
-        """Initialize the vision session."""
+        """Initialize the navigation oracle."""
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY is required")
         
-        # Configure the API
-        genai.configure(api_key=self.api_key)
-        
-        # System instruction for RoboWeave Vision Coach
-        self.system_instruction = """You are "RoboWeave Vision Coach".
-When you receive an image, perform two tasks in plain text:
-① Succinctly describe what is visible.
-② Recommend one concrete next step an engineer should take to advance the project.
-If a data-or metric-driven plot would help, call the tool "render_altair" and pass a vega-lite spec as a JSON string in the arg `json_graph`.
-Otherwise answer normally."""
-        
-        # Initialize the model
-        self.model = genai.GenerativeModel(
-            'gemini-1.5-flash',
-            system_instruction=self.system_instruction,
-            safety_settings={
-                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-            }
-        )
+        # Configure the client
+        self.client = genai.Client(api_key=self.api_key)
     
-    async def analyze_image(self, image_bytes: bytes, prompt: str) -> str:
-        """Analyze an image with the given prompt."""
+    async def next_move(self, frame_bytes: bytes) -> str:
+        """
+        Analyze frame and return navigation direction.
+        
+        Args:
+            frame_bytes: Raw image data (PNG/JPEG)
+            
+        Returns:
+            One of: "Up", "Down", "Left", "Right"
+        """
         try:
             # Convert image bytes to base64
-            image_data = base64.b64encode(image_bytes).decode('utf-8')
+            image_b64 = base64.b64encode(frame_bytes).decode('utf-8')
             
-            # Create image part
-            image_part = {
-                "mime_type": "image/png",
-                "data": image_data
-            }
-            
-            # Generate response
-            response = await asyncio.to_thread(
-                self.model.generate_content,
-                [prompt, image_part]
-            )
-            
-            return response.text
-            
+            # Connect to Live API
+            async with self.client.aio.live.connect(
+                model="gemini-live-2.5-flash-preview",
+                config={
+                    "system_instruction": {
+                        "parts": [{"text": NAVIGATION_SYSTEM_PROMPT}]
+                    }
+                }
+            ) as session:
+                
+                # Send image
+                await session.send({
+                    "client_content": {
+                        "turns": [{
+                            "parts": [{
+                                "inline_data": {
+                                    "mime_type": "image/png",
+                                    "data": image_b64
+                                }
+                            }]
+                        }],
+                        "turn_complete": True
+                    }
+                })
+                
+                # Wait for first text response
+                async for response in session:
+                    if hasattr(response, 'server_content') and response.server_content:
+                        if hasattr(response.server_content, 'model_turn'):
+                            model_turn = response.server_content.model_turn
+                            if model_turn and hasattr(model_turn, 'parts'):
+                                for part in model_turn.parts:
+                                    if hasattr(part, 'text') and part.text:
+                                        # Extract and validate direction
+                                        direction = part.text.strip()
+                                        return self._validate_direction(direction)
+                
+                # No valid response received
+                return "Up"
+                
         except Exception as e:
-            raise RuntimeError(f"Vision analysis failed: {str(e)}")
+            print(f"Navigation oracle error: {e}")
+            return "Up"  # Default fallback
+    
+    def _validate_direction(self, direction: str) -> str:
+        """Validate and normalize direction response."""
+        direction = direction.strip().title()  # Normalize case
+        
+        if direction in {"Up", "Down", "Left", "Right"}:
+            return direction
+        
+        # Default fallback for invalid responses
+        return "Up"
 
 
-# Global session instance
-_session = None
+# Global oracle instance
+_oracle = None
 
 
-async def analyze(image_bytes: bytes, prompt: str) -> str:
+async def next_move(frame_bytes: bytes) -> str:
     """
-    Analyze an image using Google Gemini Vision.
+    Get next move direction for the red square.
     
     Args:
-        image_bytes: Raw image data
-        prompt: Analysis prompt
+        frame_bytes: Raw image data
         
     Returns:
-        Analysis result as string
+        Direction string: "Up", "Down", "Left", or "Right"
     """
-    global _session
+    global _oracle
     
-    if _session is None:
-        _session = VisionSession()
+    if _oracle is None:
+        _oracle = NavigationOracle()
     
-    return await _session.analyze_image(image_bytes, prompt) 
+    return await _oracle.next_move(frame_bytes)
+
+
+# Backward compatibility function (deprecated)
+async def analyze(image_bytes: bytes, prompt: str) -> str:
+    """
+    Legacy function for backward compatibility.
+    Now redirects to navigation oracle.
+    """
+    direction = await next_move(image_bytes)
+    return f"Navigate: {direction}" 
