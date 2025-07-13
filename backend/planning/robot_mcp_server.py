@@ -12,66 +12,20 @@ import json
 import time
 import math
 import pathlib
-import threading
+import signal
+import sys
 from mcp.server.fastmcp import FastMCP
-import mujoco
-from mujoco_mpc import agent as agent_lib
-from mujoco_mpc import mjpc_parameters
+from mujoco_mcp import mjpc_parameters
+
+# Import shared robot agent
+from robot_agent import get_robot_agent, cleanup_robot_agent
 
 # Initialize FastMCP server
 mcp = FastMCP("robot-control")
 
-# Global agent instance
-_agent = None
-_agent_lock = threading.Lock()
-_agent_thread = None
-
-def _get_model_path():
-    """Get the path to the robot model."""
-    return (
-        pathlib.Path(__file__).parent.parent
-        / "robot/tasks/quadruped/task_flat.xml"
-    )
-
-def _start_agent_in_thread():
-    """Start the agent in a separate thread to enable MuJoCo viewer."""
-    global _agent
-    
-    model_path = _get_model_path()
-    model = mujoco.MjModel.from_xml_path(str(model_path))
-    
-    _agent = agent_lib.Agent(
-        server_binary_path=pathlib.Path(agent_lib.__file__).parent
-        / "mjpc"
-        / "ui_agent_server",
-        task_id="Quadruped Flat",
-        model=model,
-        extra_flags=["--planner_enabled"]  # Enable interactive viewer
-    )
-    # Initialize the agent context in the thread
-    _agent.__enter__()
-    
-    # Keep the thread alive to maintain the viewer
-    try:
-        while True:
-            time.sleep(0.1)
-    except KeyboardInterrupt:
-        _agent.__exit__(None, None, None)
-
 async def _get_agent():
-    """Get or create the robot agent instance."""
-    global _agent, _agent_thread
-    
-    with _agent_lock:
-        if _agent is None:
-            # Start agent in a separate thread to enable MuJoCo viewer
-            _agent_thread = threading.Thread(target=_start_agent_in_thread, daemon=True)
-            _agent_thread.start()
-            
-            # Wait a moment for the agent to initialize
-            time.sleep(2.0)
-        
-        return _agent
+    """Get the robot agent instance."""
+    return get_robot_agent().get_agent()
 @mcp.tool()
 async def get_robot_state() -> str:
     """Get the current state of the robot including position and orientation.
@@ -406,6 +360,36 @@ async def do_flip() -> str:
     except Exception as e:
         return f"Error performing flip: {str(e)}"
 
+def signal_handler(signum, frame):
+    """Handle shutdown signals."""
+    print("Received shutdown signal, cleaning up...")
+    cleanup_robot_agent()
+    sys.exit(0)
+
+async def run_mcp_server_with_agent():
+    """Run the MCP server while maintaining the agent in the main thread."""
+    # Set up signal handlers for graceful shutdown
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
+    try:
+        # Initialize the agent first (this must happen in main thread for viewer)
+        print("Initializing robot agent...")
+        get_robot_agent().initialize()
+        print("Agent initialized successfully!")
+        
+        # Run the MCP server
+        print("Starting MCP server...")
+        # The MCP server will handle requests while the agent runs in the main thread
+        await mcp.run_async(transport='stdio')
+        
+    except KeyboardInterrupt:
+        print("Keyboard interrupt received")
+    except Exception as e:
+        print(f"Error running server: {e}")
+    finally:
+        cleanup_robot_agent()
+
 if __name__ == "__main__":
-    # Run the MCP server using stdio transport
-    mcp.run(transport='stdio')
+    # Run the integrated server with agent in main thread
+    asyncio.run(run_mcp_server_with_agent())

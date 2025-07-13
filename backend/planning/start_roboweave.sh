@@ -38,7 +38,14 @@ trap cleanup EXIT INT TERM
 
 echo "🤖 Starting Robot Control MCP Server..."
 echo "   - MuJoCo viewer will open in a separate window"
-echo "   - Agent will be initialized in background thread"
+echo "   - Agent will be initialized in main thread for viewer visibility"
+
+# Start the MCP Server in background (but it will run agent in main thread)
+python3 robot_mcp_server.py &
+MCP_SERVER_PID=$!
+
+# Wait a moment for MCP server to initialize
+sleep 5
 
 # Start the HTTP Bridge
 echo "🌐 Starting HTTP Bridge Server on port 8080..."
@@ -56,6 +63,13 @@ else
     exit 1
 fi
 
+if ps -p $MCP_SERVER_PID > /dev/null; then
+    echo "✅ MCP Server started successfully (PID: $MCP_SERVER_PID)"
+else
+    echo "❌ Failed to start MCP Server"
+    exit 1
+fi
+
 echo ""
 echo "🎉 RoboWeave Robot Control System is ready!"
 echo ""
@@ -69,5 +83,5 @@ echo "🌐 Frontend can now connect to the robot control system"
 echo ""
 echo "Press Ctrl+C to stop all services..."
 
-# Wait for user to stop
-wait $HTTP_BRIDGE_PID
+# Wait for user to stop (wait for both processes)
+wait $HTTP_BRIDGE_PID $MCP_SERVER_PID

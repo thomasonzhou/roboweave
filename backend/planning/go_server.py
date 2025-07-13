@@ -80,6 +80,6 @@ with agent_lib.Agent(
       set_goal(x, y)
 
   while True:
-    stay_still()
+    # stay_still()
       # flip()
-      # circle(1000000000000)
+      circle(1000000000000)
