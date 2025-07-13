@@ -27,3 +27,7 @@ The main command is
 ```sh
 python3 robot_http_server.py
 ```
+```sh
+python3
+mcp_http_bridge.py
+```

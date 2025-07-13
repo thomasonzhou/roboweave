@@ -16,7 +16,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import google.generativeai as genai
 import weave
+import httpx
 from dotenv import load_dotenv
+import httpx
 
 # Load environment variables
 load_dotenv()
@@ -37,6 +39,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# FastMCP client configuration
+ROBOT_MCP_URL = os.getenv('ROBOT_MCP_URL', 'http://localhost:3001')
 
 class VoiceCommandRequest(BaseModel):
     transcript: str
@@ -165,11 +170,9 @@ async def process_voice_command(request: VoiceCommandRequest):
         # Process with Gemini
         result = await process_voice_command_with_gemini(request.transcript, request.confidence)
         
-        processing_time = time.time() - start_time
-        
         if not result["success"]:
             raise HTTPException(status_code=500, detail=result.get("error", "Unknown error"))
-        
+
         data = result["data"]
         
         # Convert to response format
@@ -181,10 +184,27 @@ async def process_voice_command(request: VoiceCommandRequest):
                 reasoning=cmd.get("reasoning", ""),
                 confidence=cmd.get("confidence", 0.8)
             ))
+
+        # Execute commands via MCP (actual robot control)
+        mcp_results = await execute_robot_commands([cmd.dict() for cmd in commands])
         
+        processing_time = time.time() - start_time
+        
+        # Add MCP execution results to the explanation
+        execution_summary = []
+        for result in mcp_results:
+            if result["success"]:
+                execution_summary.append(f"✅ {result['command']['action']}")
+            else:
+                execution_summary.append(f"❌ {result['command']['action']}: {result['mcp_result'].get('error', 'Failed')}")
+        
+        enhanced_explanation = data.get("explanation", "Command processed")
+        if execution_summary:
+            enhanced_explanation += f"\n\nExecution Results:\n" + "\n".join(execution_summary)
+
         response = GeminiResponse(
             commands=commands,
-            explanation=data.get("explanation", "Command processed"),
+            explanation=enhanced_explanation,
             timestamp=time.time(),
             processing_time=processing_time,
             session_id=session_id
@@ -206,6 +226,99 @@ async def health_check():
         "google_api_configured": bool(os.getenv('GOOGLE_API_KEY')),
         "weave_project": os.getenv('WANDB_PROJECT', 'roboweave')
     }
+
+# MCP Robot Client Configuration
+MCP_ROBOT_URL = "http://localhost:8080"
+
+async def call_robot_mcp_tool(tool_name: str, arguments: Dict[str, Any] = None) -> Dict[str, Any]:
+    """Call a robot MCP tool via HTTP bridge."""
+    if arguments is None:
+        arguments = {}
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{MCP_ROBOT_URL}/call_tool",
+                json={
+                    "name": tool_name,
+                    "arguments": arguments
+                },
+                timeout=30.0
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return {
+                    "success": True,
+                    "result": result.get("content", [{}])[0].get("text", ""),
+                    "tool": tool_name,
+                    "arguments": arguments
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": f"MCP call failed: {response.status_code} {response.text}",
+                    "tool": tool_name,
+                    "arguments": arguments
+                }
+                
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"MCP call exception: {str(e)}",
+            "tool": tool_name,
+            "arguments": arguments
+        }
+
+async def execute_robot_commands(commands: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Execute robot commands via MCP and return results."""
+    results = []
+    
+    for command in commands:
+        action = command.get("action", "")
+        parameters = command.get("parameters", {})
+        
+        # Map action to MCP tool name and arguments
+        tool_call = None
+        
+        if action == "move_forward":
+            tool_call = ("move_forward", {"distance": parameters.get("distance", 0.3)})
+        elif action == "move_backward":
+            tool_call = ("move_backward", {"distance": parameters.get("distance", 0.3)})
+        elif action == "move_left":
+            tool_call = ("move_left", {"distance": parameters.get("distance", 0.3)})
+        elif action == "move_right":
+            tool_call = ("move_right", {"distance": parameters.get("distance", 0.3)})
+        elif action == "rotate_left":
+            tool_call = ("rotate_left", {"angle_degrees": parameters.get("angle", 45.0)})
+        elif action == "rotate_right":
+            tool_call = ("rotate_right", {"angle_degrees": parameters.get("angle", 45.0)})
+        elif action == "stop":
+            tool_call = ("stop_and_stay", {})
+        elif action == "flip":
+            tool_call = ("do_flip", {})
+        elif action == "circle":
+            tool_call = ("run_in_circle", {
+                "radius": parameters.get("radius", 2.0),
+                "duration": parameters.get("duration", 10.0)
+            })
+        
+        if tool_call:
+            tool_name, tool_args = tool_call
+            result = await call_robot_mcp_tool(tool_name, tool_args)
+            results.append({
+                "command": command,
+                "mcp_result": result,
+                "success": result.get("success", False)
+            })
+        else:
+            results.append({
+                "command": command,
+                "mcp_result": {"success": False, "error": f"Unknown action: {action}"},
+                "success": False
+            })
+    
+    return results
 
 if __name__ == "__main__":
     import uvicorn

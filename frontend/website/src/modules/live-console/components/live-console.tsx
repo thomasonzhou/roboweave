@@ -92,16 +92,31 @@ export function LiveConsole({
             </p>
           </div>
           
-          {/* Connection Status */}
-          <div className="flex items-center space-x-2">
-            <div className={`w-2 h-2 rounded-full ${
-              state.isConnected 
-                ? 'bg-green-500' 
-                : 'bg-red-500'
-            }`}></div>
-            <span className="text-xs text-gray-600">
-              {state.isConnected ? 'Connected' : 'Disconnected'}
-            </span>
+          {/* Connection & Processing Status */}
+          <div className="flex items-center space-x-4">
+            {/* Processing indicator */}
+            {(state.isProcessing || state.isListening) && (
+              <div className="flex items-center space-x-2">
+                <div className={`w-2 h-2 rounded-full animate-pulse ${
+                  state.isProcessing ? 'bg-yellow-500' : 'bg-blue-500'
+                }`}></div>
+                <span className="text-xs text-gray-600">
+                  {state.isProcessing ? 'Processing...' : 'Listening...'}
+                </span>
+              </div>
+            )}
+            
+            {/* Connection Status */}
+            <div className="flex items-center space-x-2">
+              <div className={`w-2 h-2 rounded-full ${
+                state.isConnected 
+                  ? 'bg-green-500' 
+                  : 'bg-red-500'
+              }`}></div>
+              <span className="text-xs text-gray-600">
+                {state.isConnected ? 'Connected' : 'Disconnected'}
+              </span>
+            </div>
           </div>
         </div>
 
