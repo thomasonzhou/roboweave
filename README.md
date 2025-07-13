@@ -9,7 +9,7 @@ RoboWeave is a multimodal robot control pipeline that maps high-level prompts—
 
 ## System Overview
 
-The core objective of RoboWeave is to enable robotic actuation from semantically rich prompts. The system features a professional website with an interactive flow builder that allows users to visualize and customize the robot control pipeline. Input is collected via multimodal interfaces, routed to Gemini for interpretation, and ultimately converted into commands for backend motion planning. The architecture supports text, image, and video inputs and is designed to generalize across multiple robotic tasks.
+The core objective of RoboWeave is to enable robotic actuation from semantically rich prompts. The system features a professional website with an interactive flow builder that allows users to visualize and customize the robot control pipeline. Input is collected via multimodal interfaces and Weave-integrated frontend that reads sensor input, routed to Gemini for interpretation, and ultimately converted into commands for backend motion planning and execution. The architecture supports text, image, audio, and video inputs and is designed to generalize across multiple robotic tasks.
 
 ## Website and Interactive Demo
 
@@ -165,6 +165,8 @@ roboweave/
 │   └── requirements.txt
 ├── backend/
 │   ├── assets/                    # 3D models and robot assets
+│   ├── llm/                      # Gemini interaction and prompt-to-motion translation
+│   ├── mcp/                      # MCP integration layer
 │   ├── go2.mjcf                  # MuJoCo model definition
 │   ├── scene_terrain.xml         # Simulation environment
 │   └── test.ipynb               # Development notebooks
