@@ -9,7 +9,7 @@ interface State {
         mobile: boolean;
     };
     sidebar: {
-        active: "node-properties" | "available-nodes" | "none";
+        active: "node-properties" | "available-nodes" | "live-processing" | "none";
         panels: {
             nodeProperties: {
                 selectedNode: { id: string; type: BuilderNodeType } | null | undefined;
@@ -25,7 +25,7 @@ interface Actions {
             setMobileView: (isMobile: boolean) => void;
         };
         sidebar: {
-            setActivePanel: (panel: "node-properties" | "available-nodes" | "none") => void;
+            setActivePanel: (panel: "node-properties" | "available-nodes" | "live-processing" | "none") => void;
             showNodePropertiesOf: (node: { id: string; type: BuilderNodeType }) => void;
             panels: {
                 nodeProperties: {

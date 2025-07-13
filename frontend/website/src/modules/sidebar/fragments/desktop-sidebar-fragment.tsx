@@ -14,7 +14,7 @@ type DesktopSidebarFragmentProps = Readonly<{
 export function DesktopSidebarFragment({ isMobileView, activePanel, setActivePanel }: DesktopSidebarFragmentProps) {
     useEffect(() => {
         if (!isMobileView && activePanel === "none") {
-            setActivePanel("available-nodes");
+            setActivePanel("live-processing");
         }
     }, [activePanel, setActivePanel, isMobileView]);
 
@@ -30,6 +30,12 @@ export function DesktopSidebarFragment({ isMobileView, activePanel, setActivePan
                 <div className="h-full flex flex-col gap-2">
                     <SidebarButtonItem active={activePanel === "available-nodes"} onClick={() => setActivePanel("available-nodes")}>
                         <div className="i-mynaui:grid size-5" />
+                    </SidebarButtonItem>
+
+                    <div className="mx-a h-px w-4 bg-dark-100" />
+
+                    <SidebarButtonItem active={activePanel === "live-processing"} onClick={() => setActivePanel("live-processing")}>
+                        <div className="text-lg">🚀</div>
                     </SidebarButtonItem>
 
                     <div className="mx-a h-px w-4 bg-dark-100" />

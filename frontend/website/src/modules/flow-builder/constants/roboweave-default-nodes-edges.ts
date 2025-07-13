@@ -1,67 +1,115 @@
-import { nanoid } from "nanoid";
+import { type Edge, type Node } from "@xyflow/react";
 
-import { BuilderNode } from "~/modules/nodes/types";
-import { createNodeWithDefaultData } from "~/modules/nodes/utils";
-
-// Create RoboWeave pipeline nodes
-const textInputNode = createNodeWithDefaultData(BuilderNode.PROMPT_INPUT, { 
-    position: { x: 50, y: 200 },
-    data: { inputType: "text", example: "Walk forward without hitting anything" }
-});
-
-const imageInputNode = createNodeWithDefaultData(BuilderNode.PROMPT_INPUT, { 
-    position: { x: 50, y: 100 },
-    data: { inputType: "image", example: "Visual scene analysis" }
-});
-
-const videoInputNode = createNodeWithDefaultData(BuilderNode.PROMPT_INPUT, { 
-    position: { x: 50, y: 300 },
-    data: { inputType: "video", example: "Temporal motion analysis" }
-});
-
-const llmProcessingNode = createNodeWithDefaultData(BuilderNode.LLM_PROCESSING, { 
-    position: { x: 400, y: 200 }
-});
-
-const motionPlannerNode = createNodeWithDefaultData(BuilderNode.MOTION_PLANNER, { 
-    position: { x: 750, y: 150 }
-});
-
-const mcpProtocolNode = createNodeWithDefaultData(BuilderNode.MCP_PROTOCOL, { 
-    position: { x: 750, y: 250 }
-});
-
-const robotExecutionNode = createNodeWithDefaultData(BuilderNode.ROBOT_EXECUTION, { 
-    position: { x: 1100, y: 200 }
-});
-
-const weaveMonitoringNode = createNodeWithDefaultData(BuilderNode.WEAVE_MONITORING, { 
-    position: { x: 1100, y: 100 }
-});
-
-const roboweaveNodes = [
-    textInputNode,
-    imageInputNode,
-    videoInputNode,
-    llmProcessingNode,
-    motionPlannerNode,
-    mcpProtocolNode,
-    robotExecutionNode,
-    weaveMonitoringNode
+export const defaultRoboweaveNodes: Node[] = [
+    {
+        id: "prompt-input",
+        type: "promptInput",
+        position: { x: 50, y: 50 },
+        data: {
+            label: "Prompt Input",
+            description: "Text and image inputs",
+            status: "idle",
+            icon: "📝"
+        },
+    },
+    {
+        id: "llm-processing",
+        type: "llmProcessing", 
+        position: { x: 250, y: 50 },
+        data: {
+            label: "LLM Processing",
+            description: "Multimodal reasoning",
+            status: "idle",
+            icon: "🧠"
+        },
+    },
+    {
+        id: "motion-planner",
+        type: "motionPlanner",
+        position: { x: 450, y: 50 },
+        data: {
+            label: "Motion Planner",
+            description: "Path planning & control",
+            status: "idle", 
+            icon: "🎯"
+        },
+    },
+    {
+        id: "mcp-protocol",
+        type: "mcpProtocol",
+        position: { x: 150, y: 200 },
+        data: {
+            label: "MCP Protocol",
+            description: "Model Control Protocol",
+            status: "idle",
+            icon: "🔗"
+        },
+    },
+    {
+        id: "robot-execution",
+        type: "robotExecution",
+        position: { x: 350, y: 200 },
+        data: {
+            label: "Robot Execution", 
+            description: "Hardware control",
+            status: "idle",
+            icon: "🤖"
+        },
+    },
+    {
+        id: "weave-monitoring",
+        type: "weaveMonitoring",
+        position: { x: 550, y: 200 },
+        data: {
+            label: "Weave Monitoring",
+            description: "Trace & metrics",
+            status: "idle",
+            icon: "📊"
+        },
+    },
 ];
 
-const roboweaveEdges = [
-    { id: nanoid(), source: textInputNode.id, target: llmProcessingNode.id, type: "deletable" },
-    { id: nanoid(), source: imageInputNode.id, target: llmProcessingNode.id, type: "deletable" },
-    { id: nanoid(), source: videoInputNode.id, target: llmProcessingNode.id, type: "deletable" },
-    { id: nanoid(), source: llmProcessingNode.id, target: motionPlannerNode.id, type: "deletable" },
-    { id: nanoid(), source: llmProcessingNode.id, target: mcpProtocolNode.id, type: "deletable" },
-    { id: nanoid(), source: motionPlannerNode.id, target: robotExecutionNode.id, type: "deletable" },
-    { id: nanoid(), source: mcpProtocolNode.id, target: robotExecutionNode.id, type: "deletable" },
-    { id: nanoid(), source: robotExecutionNode.id, target: weaveMonitoringNode.id, type: "deletable" },
-];
-
-export {
-    roboweaveNodes as defaultRoboweaveNodes,
-    roboweaveEdges as defaultRoboweaveEdges,
-}; 
+export const defaultRoboweaveEdges: Edge[] = [
+    {
+        id: "prompt-to-llm",
+        source: "prompt-input",
+        target: "llm-processing",
+        type: "deletable",
+        animated: true,
+    },
+    {
+        id: "llm-to-motion",
+        source: "llm-processing", 
+        target: "motion-planner",
+        type: "deletable",
+        animated: true,
+    },
+    {
+        id: "llm-to-mcp",
+        source: "llm-processing",
+        target: "mcp-protocol", 
+        type: "deletable",
+        animated: true,
+    },
+    {
+        id: "motion-to-robot",
+        source: "motion-planner",
+        target: "robot-execution",
+        type: "deletable",
+        animated: true,
+    },
+    {
+        id: "mcp-to-robot", 
+        source: "mcp-protocol",
+        target: "robot-execution",
+        type: "deletable",
+        animated: true,
+    },
+    {
+        id: "robot-to-weave",
+        source: "robot-execution",
+        target: "weave-monitoring",
+        type: "deletable",
+        animated: true,
+    },
+]; 
