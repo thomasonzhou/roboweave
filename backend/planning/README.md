@@ -14,3 +14,6 @@ stand_down_joint_pos = np.array([
 
 Mujoco MPC build with clang 17, quadruped walk
 
+## Notes
+
+`go_server.py` will only work in an environment with python support for MuJoCo MPC
