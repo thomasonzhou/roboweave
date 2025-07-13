@@ -27,18 +27,30 @@ time.sleep(0.2)
 def SimulationThread():
     global mj_data, mj_model
 
-    ChannelFactoryInitialize(config.DOMAIN_ID, config.INTERFACE)
-    unitree = UnitreeSdk2Bridge(mj_model, mj_data)
+    # Comment out the bridge to disable command processing
+    # ChannelFactoryInitialize(config.DOMAIN_ID, config.INTERFACE)
+    # unitree = UnitreeSdk2Bridge(mj_model, mj_data)
 
-    if config.USE_JOYSTICK:
-        unitree.SetupJoystick(device_id=0, js_type=config.JOYSTICK_TYPE)
-    if config.PRINT_SCENE_INFORMATION:
-        unitree.PrintSceneInformation()
+    # if config.USE_JOYSTICK:
+    #     unitree.SetupJoystick(device_id=0, js_type=config.JOYSTICK_TYPE)
+    # if config.PRINT_SCENE_INFORMATION:
+    #     unitree.PrintSceneInformation()
+
+    # Set all motor controls to zero (no actuation)
+    for i in range(num_motor_):
+        mj_data.ctrl[i] = 0.0
+
+    print(f"Running simulation with {num_motor_} motors")
+    print("Bridge disabled - robot should fall naturally under gravity")
 
     while viewer.is_running():
         step_start = time.perf_counter()
 
         locker.acquire()
+
+        # Keep all controls at zero (no actuation)
+        for i in range(num_motor_):
+            mj_data.ctrl[i] = 0.0
 
         mujoco.mj_step(mj_model, mj_data)
 
