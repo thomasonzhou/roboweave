@@ -3,6 +3,7 @@ import numpy as np
 import pygame
 import sys
 import struct
+import math
 
 from unitree_sdk2py.core.channel import ChannelSubscriber, ChannelPublisher
 
@@ -12,6 +13,7 @@ from unitree_sdk2py.idl.default import unitree_go_msg_dds__SportModeState_
 from unitree_sdk2py.idl.default import unitree_go_msg_dds__WirelessController_
 from unitree_sdk2py.utils.thread import RecurrentThread
 
+from unitree_sdk2py.go2.sport.sport_client import SportClient
 
 from unitree_sdk2py.idl.unitree_go.msg.dds_ import LowCmd_
 from unitree_sdk2py.idl.unitree_go.msg.dds_ import LowState_
@@ -83,6 +85,10 @@ class UnitreeSdk2Bridge:
         self.low_cmd_suber = ChannelSubscriber(TOPIC_LOWCMD, LowCmd_)
         self.low_cmd_suber.Init(self.LowCmdHandler, 10)
 
+        # Initialize rudimentary gait generator for sport mode commands
+        self.gait_generator = RudimentaryGaitGenerator(dt=self.dt)
+        self.sport_mode_enabled = False  # Flag to enable sport mode control
+
         # joystick
         self.key_map = {
             "R1": 0,
@@ -105,6 +111,13 @@ class UnitreeSdk2Bridge:
 
     def LowCmdHandler(self, msg: LowCmd_):
         if self.mj_data != None:
+            # Check if sport mode is enabled - if so, ignore low-level commands
+            if self.sport_mode_enabled:
+                # Sport mode is controlling the robot, apply gait positions
+                self._apply_gait_to_simulation()
+                return
+                
+            # Normal low-level command processing
             for i in range(self.num_motor):
                 self.mj_data.ctrl[i] = (
                     msg.motor_cmd[i].tau
@@ -399,34 +412,45 @@ class UnitreeSdk2Bridge:
             index = index + self.mj_model.sensor_dim[i]
         print(" ")
 
-
-class ElasticBand:
-
-    def __init__(self):
-        self.stiffness = 200
-        self.damping = 100
-        self.point = np.array([0, 0, 3])
-        self.length = 0
-        self.enable = True
-
-    def Advance(self, x, dx):
-        """
-        Args:
-          δx: desired position - current position
-          dx: current velocity
-        """
-        δx = self.point - x
-        distance = np.linalg.norm(δx)
-        direction = δx / distance
-        v = np.dot(dx, direction)
-        f = (self.stiffness * (distance - self.length) - self.damping * v) * direction
-        return f
-
-    def MujuocoKeyCallback(self, key):
-        glfw = mujoco.glfw.glfw
-        if key == glfw.KEY_7:
-            self.length -= 0.1
-        if key == glfw.KEY_8:
-            self.length += 0.1
-        if key == glfw.KEY_9:
-            self.enable = not self.enable
+    def sport_mode_move(self, vx, vy, vyaw):
+        """High-level sport mode move command"""
+        self.sport_mode_enabled = True
+        self.gait_generator.update_sport_command(vx, vy, vyaw, mode=2)
+        return self._apply_gait_to_simulation()
+    
+    def sport_mode_balance_stand(self):
+        """High-level sport mode balance stand command"""  
+        self.sport_mode_enabled = True
+        self.gait_generator.update_sport_command(0, 0, 0, mode=1)
+        return self._apply_gait_to_simulation()
+    
+    def sport_mode_stop(self):
+        """High-level sport mode stop command"""
+        self.sport_mode_enabled = True
+        self.gait_generator.update_sport_command(0, 0, 0, mode=0)
+        return self._apply_gait_to_simulation()
+    
+    def disable_sport_mode(self):
+        """Disable sport mode and return to low-level control"""
+        self.sport_mode_enabled = False
+    
+    def _apply_gait_to_simulation(self):
+        """Apply gait-generated positions to MuJoCo simulation"""
+        if self.mj_data is None:
+            return False
+            
+        # Get joint positions from gait generator
+        target_positions = self.gait_generator.generate_joint_positions()
+        
+        # Apply to MuJoCo simulation using PD control
+        for i in range(min(self.num_motor, len(target_positions))):
+            # Simple PD control
+            kp = 30.0  # Position gain
+            kd = 1.0   # Damping gain
+            
+            position_error = target_positions[i] - self.mj_data.sensordata[i]
+            velocity_error = 0.0 - self.mj_data.sensordata[i + self.num_motor]
+            
+            self.mj_data.ctrl[i] = kp * position_error + kd * velocity_error
+        
+        return True

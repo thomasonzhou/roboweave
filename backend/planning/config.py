@@ -1,6 +1,6 @@
 ROBOT_FILE = "apt68.xml" 
 ROBOT_SCENE = "../robot/" + ROBOT_FILE
-DOMAIN_ID = 1 # Domain id
+DOMAIN_ID = 1 # Domain id, using 1 for simulation
 INTERFACE = "lo" # Interface 
 
 USE_JOYSTICK = 0 # Simulate Unitree WirelessController using a gamepad
