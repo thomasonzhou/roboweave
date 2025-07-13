@@ -71,7 +71,7 @@ async def test_mcp_tools():
         
         # Test 8: Run in circle (short duration for testing)
         print("⭕ Test 8: Running in circle...")
-        circle_result = await run_in_circle(radius=1.5, duration=3.0)
+        circle_result = await run_in_circle(radius=1.5, duration=10.0)
         print(f"Result: {circle_result}\n")
         
         # Wait for circle motion to start
