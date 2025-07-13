@@ -15,15 +15,8 @@ The core objective of RoboWeave is to enable robotic actuation from semantically
 
 The RoboWeave website provides a comprehensive interface for understanding and interacting with the robot control pipeline:
 
-**Homepage Features:**
-- Hero section with animated typewriter effect and dogs background
-- Features overview with six key capabilities
-- Architecture visualization showing four-component pipeline
-- Interactive demonstration scenarios
-- Team information and project details
-- Claude-inspired design with warm beige color palette
 
-**Interactive Flow Builder:**
+**Interactive Agent Flow Builder:**
 - Professional drag-and-drop interface for building robot control flows
 - Custom node types for each pipeline component
 - Real-time connection validation and auto-adjustment
@@ -31,7 +24,7 @@ The RoboWeave website provides a comprehensive interface for understanding and i
 - Seamless visual integration with homepage design
 - Based on elegant flow builder patterns with RoboWeave-specific customization
 
-![RoboWeave Flow Builder](frontend/website/public/imgs/flow-builder-demo.png)
+![RoboWeave Flow Builder](frontend/website/public/imgs/flowchart-demo.png)
 *Interactive flow builder interface showing the complete RoboWeave pipeline with custom nodes for prompt input, LLM processing, motion planning, MCP protocol, robot execution, and Weave monitoring.*
 
 ## Architecture
@@ -231,7 +224,7 @@ roboweave/
 
 The RoboWeave interactive flow builder is available at `/demo` and provides a comprehensive visualization of the robot control pipeline:
 
-![RoboWeave Flow Builder Interface](frontend/website/public/imgs/flow-builder-demo.png)
+![RoboWeave Flow Builder Interface](frontend/website/public/imgs/flowchart-demo.png)
 
 **Key Features Demonstrated:**
 - Six custom node types representing the complete pipeline
