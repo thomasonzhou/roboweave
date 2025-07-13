@@ -17,3 +17,8 @@ Mujoco MPC build with clang 17, quadruped walk
 ## Notes
 
 `go_server.py` will only work in an environment with python support for MuJoCo MPC
+
+Activate with something like:
+```sh
+source ~/src/mujoco_mpc/.venv/bin/activate
+```

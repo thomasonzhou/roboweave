@@ -33,10 +33,23 @@ with agent_lib.Agent(
     / "ui_agent_server",
     task_id="Quadruped Flat",
     model=model,
+    extra_flags=["--planner_enabled"]
 ) as agent:
+  print(f"Current mode: {agent.get_mode()}")
+  print(f"Available modes: {agent.get_all_modes()}")
+  print(f"Current task parameters: {agent.get_task_parameters()}")
+
+
+
+  MODES = {'Quadruped', 'Flip'}
+  TARGETS = {"Home", "Circle"}
+
+  target = "Circle"
+
+
   start_time = time.time()
   while True:
-    if CIRCLE:
+    if target == "Circle":
       current_time = time.time() - start_time
           
       # Create a circular motion for the goal, counter-clockwise
