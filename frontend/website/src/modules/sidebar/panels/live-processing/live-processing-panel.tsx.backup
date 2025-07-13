@@ -80,6 +80,10 @@ const PIPELINE_STEPS: PipelineStep[] = [
 ];
 
 export default function LiveProcessingPanel() {
+    const { isMobileView } = useApplicationState(s => ({
+        isMobileView: s.view.mobile
+    }));
+    
     // Get shared state from context
     const { 
         agents, 

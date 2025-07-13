@@ -158,6 +158,9 @@ export class GeminiLiveService {
       session_id: this.sessionId
     };
 
+    console.log('🚀 Making request to:', url);
+    console.log('🚀 Request body:', requestBody);
+
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -166,12 +169,17 @@ export class GeminiLiveService {
       body: JSON.stringify(requestBody)
     });
 
+    console.log('🚀 Response status:', response.status, response.statusText);
+    console.log('🚀 Response headers:', Object.fromEntries(response.headers.entries()));
+
     if (!response.ok) {
       const errorText = await response.text();
+      console.error('🚀 Error response body:', errorText);
       throw new Error(`Backend service error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const data = await response.json();
+    console.log('🚀 Success response:', data);
     return data;
   }
 
