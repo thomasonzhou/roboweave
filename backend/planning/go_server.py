@@ -14,7 +14,10 @@
 
 import mujoco
 from mujoco_mpc import agent as agent_lib
+from mujoco_mpc import mjpc_parameters
 import pathlib
+import time
+import math
 
 model_path = (
     pathlib.Path(__file__).parent.parent
@@ -30,5 +33,17 @@ with agent_lib.Agent(
     task_id="Quadruped Flat",
     model=model,
 ) as agent:
+  start_time = time.time()
   while True:
-    pass
+    current_time = time.time() - start_time
+        
+    # Create a circular motion for the goal
+    radius = 2.0
+    x = radius * math.cos(current_time * 0.5)
+    y = radius * math.sin(current_time * 0.5)
+    z = 0.26
+    
+    goal_pose = mjpc_parameters.Pose(pos=[x, y, z], quat=[1, 0, 0, 0])
+    agent.set_mocap({"goal": goal_pose})
+    
+    time.sleep(0.01)  # Small delay
