@@ -45,7 +45,7 @@ async def _get_agent():
                 / "ui_agent_server",
                 task_id="Quadruped Flat",
                 model=model,
-                extra_flags=["--planner_enabled", "--enable_ui"]  # Enable interactive viewer
+                extra_flags=["--planner_enabled"]  # Enable interactive viewer
             )
             # Initialize the agent context
             await asyncio.get_event_loop().run_in_executor(None, _agent.__enter__)
@@ -112,7 +112,8 @@ async def move_forward(distance: float = 0.3) -> str:
         
         # Calculate forward direction based on current orientation
         # For simplicity, assume forward is +X direction
-        goal_x = current_x + 0.3 + distance
+        # Set goal distance+0.3m ahead to maintain mocap consistency
+        goal_x = current_x + distance + 0.3
         goal_y = current_y
         goal_z = 0.26
         
@@ -143,8 +144,9 @@ async def move_backward(distance: float = 0.3) -> str:
         current_x = float(state.qpos[0])
         current_y = float(state.qpos[1])
         
-        # Move backward (negative X direction)
-        goal_x = current_x + 0.3 - distance
+        # Move backward (negative X direction) 
+        # Set goal distance back from current + 0.3m offset to maintain mocap consistency
+        goal_x = current_x - distance + 0.3
         goal_y = current_y
         goal_z = 0.26
         
@@ -208,7 +210,7 @@ async def move_right(distance: float = 0.3) -> str:
         current_y = float(state.qpos[1])
         
         # Move right (negative Y direction)
-        goal_x = current_x
+        goal_x = current_x + 0.3
         goal_y = current_y - distance
         goal_z = 0.26
         
@@ -246,7 +248,7 @@ async def rotate_left(angle_degrees: float = 45.0) -> str:
         sin_half = math.sin(angle_rad / 2)
         
         goal_pose = mjpc_parameters.Pose(
-            pos=[current_x, current_y, 0.26], 
+            pos=[current_x + 0.3, current_y, 0.26], 
             quat=[cos_half, 0, 0, sin_half]
         )
         agent.set_mocap({"goal": goal_pose})
@@ -281,7 +283,7 @@ async def rotate_right(angle_degrees: float = 45.0) -> str:
         sin_half = math.sin(angle_rad / 2)
         
         goal_pose = mjpc_parameters.Pose(
-            pos=[current_x, current_y, 0.26], 
+            pos=[current_x + 0.3, current_y, 0.26], 
             quat=[cos_half, 0, 0, sin_half]
         )
         agent.set_mocap({"goal": goal_pose})
@@ -349,12 +351,12 @@ async def stop_and_stay() -> str:
         agent = await _get_agent()
         agent.set_mode("Quadruped")
         
-        # Get current state and set goal to current position
+        # Get current state and set goal to current position + 0.3 offset
         state = agent.get_state()
         current_x = float(state.qpos[0])
         current_y = float(state.qpos[1])
         
-        goal_pose = mjpc_parameters.Pose(pos=[current_x, current_y, 0.26], quat=[1, 0, 0, 0])
+        goal_pose = mjpc_parameters.Pose(pos=[current_x + 0.3, current_y, 0.26], quat=[1, 0, 0, 0])
         agent.set_mocap({"goal": goal_pose})
         
         return f"Robot stopped and staying at position ({current_x:.2f}, {current_y:.2f})"
