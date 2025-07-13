@@ -31,6 +31,9 @@ The RoboWeave website provides a comprehensive interface for understanding and i
 - Seamless visual integration with homepage design
 - Based on elegant flow builder patterns with RoboWeave-specific customization
 
+![RoboWeave Flow Builder](frontend/website/public/imgs/flow-builder-demo.png)
+*Interactive flow builder interface showing the complete RoboWeave pipeline with custom nodes for prompt input, LLM processing, motion planning, MCP protocol, robot execution, and Weave monitoring.*
+
 ## Architecture
 
 **Pipeline Components:**
@@ -224,11 +227,24 @@ roboweave/
 - zustand for state management
 - @unocss/vite for styling
 
+## Live Demo
+
+The RoboWeave interactive flow builder is available at `/demo` and provides a comprehensive visualization of the robot control pipeline:
+
+![RoboWeave Flow Builder Interface](frontend/website/public/imgs/flow-builder-demo.png)
+
+**Key Features Demonstrated:**
+- Six custom node types representing the complete pipeline
+- Drag-and-drop interface with professional styling
+- Real-time connection validation between components
+- Sidebar with available nodes for easy workflow construction
+- Seamless integration with the main website design
+
 ## Installation and Setup
 
 1. **Clone Repository:**
    ```bash
-   git clone https://github.com/username/roboweave.git
+   git clone https://github.com/thomasonzhou/roboweave.git
    cd roboweave
    ```
 
