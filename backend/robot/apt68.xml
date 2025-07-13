@@ -1,7 +1,7 @@
 <mujoco model="base">
   <compiler angle="radian" meshdir="assets/"/>
 
-  <option impratio="20" density="1.2" viscosity="2e-05" cone="elliptic"/>
+  <option impratio="10" density="1000" viscosity="0" iterations="50" tolerance="1e-10" cone="elliptic" timestep="0.002"/>
 
   <size njmax="5000" nconmax="5000"/>
 
@@ -479,7 +479,6 @@
     <mesh name="paper_towel_main_group_model_2_vis" file="/home/thchzh/src/robocasa/robocasa/models/assets/fixtures/accessories/paper_towel_holders/holder_2/visuals/model_2.obj" scale="0.35 0.35 0.35"/>
     <mesh name="paper_towel_main_group_model_3_vis" file="/home/thchzh/src/robocasa/robocasa/models/assets/fixtures/accessories/paper_towel_holders/holder_2/visuals/model_3.obj" scale="0.35 0.35 0.35"/>
     <mesh name="utensil_holder_main_group_model_0_vis" file="/home/thchzh/src/robocasa/robocasa/models/assets/fixtures/accessories/utensil_holders/holder_1/visuals/model_0.obj" scale="0.35 0.35 0.35"/>
-    <mesh name="utensil_holder_main_group_model_1_vis" file="/home/thchzh/src/robocasa/robocasa/models/assets/fixtures/accessories/utensil_holders/holder_1/visuals/model_1.obj" scale="0.35 0.35 0.35"/>
     <mesh name="utensil_holder_main_group_model_2_vis" file="/home/thchzh/src/robocasa/robocasa/models/assets/fixtures/accessories/utensil_holders/holder_1/visuals/model_2.obj" scale="0.35 0.35 0.35"/>
     <mesh name="utensil_holder_main_group_model_3_vis" file="/home/thchzh/src/robocasa/robocasa/models/assets/fixtures/accessories/utensil_holders/holder_1/visuals/model_3.obj" scale="0.35 0.35 0.35"/>
     <mesh name="sink_island_group_model_0_vis" file="/home/thchzh/src/robocasa/robocasa/models/assets/fixtures/sinks/concrete_sink/visuals/model_0.obj" scale="0.916667 0.916667 0.916667"/>
@@ -614,6 +613,102 @@
     <mesh name="distr_cab_model_normalized_collision_13._coll" file="/home/thchzh/src/robocasa/robocasa/models/assets/objects/objaverse/apple/apple_13/collision/model_normalized_collision_13.obj" scale="0.063 0.063 0.063"/>
   </asset>
 
+  <default>
+    <default class="go2">
+      <geom friction="0.4" margin="0.001" condim="1"/>
+      <joint axis="0 1 0" damping="0.1" armature="0.01" frictionloss="0.2"/>
+      <motor ctrlrange="-23.7 23.7"/>
+      <default class="abduction">
+        <joint axis="1 0 0" range="-1.0472 1.0472"/>
+      </default>
+      <default class="hip">
+        <default class="front_hip">
+          <joint range="-1.5708 3.4907"/>
+        </default>
+        <default class="back_hip">
+          <joint range="-0.5236 4.5379"/>
+        </default>
+      </default>
+      <default class="knee">
+        <joint range="-2.7227 -0.83776"/>
+        <motor ctrlrange="-45.43 45.43"/>
+      </default>
+      <default class="visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2"/>
+      </default>
+      <default class="collision">
+        <geom group="3"/>
+        <default class="foot">
+          <geom size="0.022" pos="-0.002 0 -0.213" priority="1" condim="6"
+            friction="0.4 0.02 0.01"/>
+        </default>
+      </default>
+    </default>
+  </default>
+
+  <actuator>
+    <motor class="abduction" name="FR_hip" joint="FR_hip_joint" />
+    <motor class="hip" name="FR_thigh" joint="FR_thigh_joint" />
+    <motor class="knee" name="FR_calf" joint="FR_calf_joint" />
+    <motor class="abduction" name="FL_hip" joint="FL_hip_joint" />
+    <motor class="hip" name="FL_thigh" joint="FL_thigh_joint" />
+    <motor class="knee" name="FL_calf" joint="FL_calf_joint" />
+    <motor class="abduction" name="RR_hip" joint="RR_hip_joint" />
+    <motor class="hip" name="RR_thigh" joint="RR_thigh_joint" />
+    <motor class="knee" name="RR_calf" joint="RR_calf_joint" />
+    <motor class="abduction" name="RL_hip" joint="RL_hip_joint" />
+    <motor class="hip" name="RL_thigh" joint="RL_thigh_joint" />
+    <motor class="knee" name="RL_calf" joint="RL_calf_joint" />
+  </actuator>
+
+  <sensor>
+    <jointpos name="FR_hip_pos" joint="FR_hip_joint" />
+    <jointpos name="FR_thigh_pos" joint="FR_thigh_joint" />
+    <jointpos name="FR_calf_pos" joint="FR_calf_joint" />
+    <jointpos name="FL_hip_pos" joint="FL_hip_joint" />
+    <jointpos name="FL_thigh_pos" joint="FL_thigh_joint" />
+    <jointpos name="FL_calf_pos" joint="FL_calf_joint" />
+    <jointpos name="RR_hip_pos" joint="RR_hip_joint" />
+    <jointpos name="RR_thigh_pos" joint="RR_thigh_joint" />
+    <jointpos name="RR_calf_pos" joint="RR_calf_joint" />
+    <jointpos name="RL_hip_pos" joint="RL_hip_joint" />
+    <jointpos name="RL_thigh_pos" joint="RL_thigh_joint" />
+    <jointpos name="RL_calf_pos" joint="RL_calf_joint" />
+
+    <jointvel name="FR_hip_vel" joint="FR_hip_joint" />
+    <jointvel name="FR_thigh_vel" joint="FR_thigh_joint" />
+    <jointvel name="FR_calf_vel" joint="FR_calf_joint" />
+    <jointvel name="FL_hip_vel" joint="FL_hip_joint" />
+    <jointvel name="FL_thigh_vel" joint="FL_thigh_joint" />
+    <jointvel name="FL_calf_vel" joint="FL_calf_joint" />
+    <jointvel name="RR_hip_vel" joint="RR_hip_joint" />
+    <jointvel name="RR_thigh_vel" joint="RR_thigh_joint" />
+    <jointvel name="RR_calf_vel" joint="RR_calf_joint" />
+    <jointvel name="RL_hip_vel" joint="RL_hip_joint" />
+    <jointvel name="RL_thigh_vel" joint="RL_thigh_joint" />
+    <jointvel name="RL_calf_vel" joint="RL_calf_joint" />
+
+    <jointactuatorfrc name="FR_hip_torque" joint="FR_hip_joint" noise="0.01" />
+    <jointactuatorfrc name="FR_thigh_torque" joint="FR_thigh_joint" noise="0.01" />
+    <jointactuatorfrc name="FR_calf_torque" joint="FR_calf_joint" noise="0.01" />
+    <jointactuatorfrc name="FL_hip_torque" joint="FL_hip_joint" noise="0.01" />
+    <jointactuatorfrc name="FL_thigh_torque" joint="FL_thigh_joint" noise="0.01" />
+    <jointactuatorfrc name="FL_calf_torque" joint="FL_calf_joint" noise="0.01" />
+    <jointactuatorfrc name="RR_hip_torque" joint="RR_hip_joint" noise="0.01" />
+    <jointactuatorfrc name="RR_thigh_torque" joint="RR_thigh_joint" noise="0.01" />
+    <jointactuatorfrc name="RR_calf_torque" joint="RR_calf_joint" noise="0.01" />
+    <jointactuatorfrc name="RL_hip_torque" joint="RL_hip_joint" noise="0.01" />
+    <jointactuatorfrc name="RL_thigh_torque" joint="RL_thigh_joint" noise="0.01" />
+    <jointactuatorfrc name="RL_calf_torque" joint="RL_calf_joint" noise="0.01" />
+
+    <framequat name="imu_quat" objtype="site" objname="imu" />
+    <gyro name="imu_gyro" site="imu" />
+    <accelerometer name="imu_acc" site="imu" />
+    
+    <framepos name="frame_pos" objtype="site" objname="imu" />
+    <framelinvel name="frame_vel" objtype="site" objname="imu" />
+  </sensor>
+
   <worldbody>
     <light pos="2 -2 2" dir="0.009999 0.009999 -0.9999" directional="true" castshadow="false" ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3"/>
     <body name="left_eef_target" pos="0 0 -1" mocap="true">
@@ -624,10 +719,14 @@
       <geom name="right_eef_target_box" size="0.05 0.05 0.05" type="box" contype="0" conaffinity="0" group="2" rgba="0.208 0.314 0.439 0.5"/>
       <geom name="right_eef_target_sphere" size="0.01" contype="0" conaffinity="0" group="2" rgba="0.208 0.314 0.439 0.8"/>
     </body>
-        <body name="robot0_base" pos="2.9 -1.0 0.5" quat="0.707107 0 0 0.707107">
+    <body name="robot0_base" pos="2.9 -1.2 0.5" quat="1 0 0 0">
       <freejoint />
       <include file="go2.mjcf"/>
     </body>
+    
+    <!-- Add a proper ground plane for the robot -->
+    <geom name="ground_plane" pos="0 0 0" size="10 10 0.1" type="plane" material="floor_room_wall_mat" />
+    
     <body name="wall_room_main" pos="3.2 0.02 1.5" quat="-0.707107 0.707107 0 0">
       <geom name="wall_room_g0" size="3.24 1.5 0.02" type="box" rgba="0.5 0 0 1"/>
       <geom name="wall_room_g0_vis" size="3.24 1.5 0.02" type="box" contype="0" conaffinity="0" group="1" mass="0" material="wall_room_wall_mat"/>
@@ -4597,5 +4696,6 @@
       <site name="distr_cab_default_site" pos="0 0 0" size="0.0018" rgba="1 0 0 0"/>
     </body>
   </worldbody>
+
 
 </mujoco>
