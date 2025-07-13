@@ -63,9 +63,8 @@ Three representative success cases were implemented and validated in the hackath
 roboweave/
 ├── frontend/            # Weave-based interface and prompt collection
 ├── backend/
-│   ├── llm/             # Gemini interaction and parsing
-│   ├── planning/        # Prompt-to-motion translation
-│   └── mcp/         # MCP integration layer
+│   ├── llm/             # Gemini interaction and prompt-to-motion translation
+│   └── mcp/             # MCP integration layer
 ├── scripts/             # QA, telemetry, test cases
 ├── docs/                # Architecture notes and presentation assets
 └── README.md
