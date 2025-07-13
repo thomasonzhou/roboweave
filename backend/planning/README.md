@@ -23,11 +23,9 @@ Activate with something like:
 source ~/src/mujoco_mpc/.venv/bin/activate
 ```
 
-The main command is 
-```sh
-python3 robot_http_server.py
-```
+The main command is (planning dir)
 ```sh
 python3
 mcp_http_bridge.py
 ```
+
