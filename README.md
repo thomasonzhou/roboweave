@@ -9,7 +9,7 @@ RoboWeave is a multimodal robot control pipeline that maps high-level prompts—
 
 ## System Overview
 
-The core objective of RoboWeave is to enable robotic actuation from semantically rich prompts. Input is collected via a Weave-intergrated frontend that reads sensor input, routed to Gemini for interpretation, and ultimately converted into commands to send to a backend motion planning pipeline. The architecture supports a mixture of text, image, and video inputs and is designed to generalize across multiple robotic tasks.
+The core objective of RoboWeave is to enable robotic actuation from semantically rich prompts. Input is collected via a Weave-integrated frontend that reads sensor input, routed to Gemini for interpretation, and ultimately converted into commands to send to a backend motion execution API. The architecture supports a mixture of text, image, audio, and video inputs and is designed to generalize across multiple robotic tasks.
 
 ## Architecture
 

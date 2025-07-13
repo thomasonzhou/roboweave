@@ -1,1 +1,0 @@
-TODO: wire Gemini to MCP for MuJoCo
