@@ -4,6 +4,7 @@ import { ReactFlowProvider } from "@xyflow/react";
 import { NavigationComponent } from "~/components/navigation/navigation-component";
 import { RoboWeaveFlowBuilder } from "~/modules/flow-builder/roboweave-flow-builder";
 import { SidebarModule } from "~/modules/sidebar/sidebar-module";
+import { LiveProcessingPipeline } from "~/components/live-demo/live-processing-pipeline";
 
 export const Route = createFileRoute("/demo")({
     component: DemoPage,
@@ -37,10 +38,13 @@ function DemoPage() {
                                 RoboWeave Interactive Flow Builder
                             </h1>
                             <p className="text-xl text-stone-600 max-w-4xl mx-auto">
-                                Explore and customize the multimodal robot control pipeline. Drag nodes from the sidebar, 
-                                connect them to build your flow, and see how prompts transform into robot actions.
+                                Live multimodal robot control with real-time Gemini processing and Weave observability. 
+                                Test your prompts and watch the pipeline execute with animated visual feedback.
                             </p>
                         </div>
+                        
+                        {/* Live Processing Pipeline */}
+                        <LiveProcessingPipeline />
                         
                         <div className="bg-white/70 backdrop-blur-sm rounded-2xl border border-stone-200 shadow-lg h-[calc(100vh-200px)] overflow-hidden">
                             <ReactFlowProvider>
