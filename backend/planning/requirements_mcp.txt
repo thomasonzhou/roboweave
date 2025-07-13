@@ -1,0 +1,11 @@
+# MCP Robot Control Server Requirements
+
+# MCP SDK for creating the server
+mcp>=1.2.0
+
+# Robot simulation and control
+mujoco
+mujoco-mpc
+
+# Additional utilities
+asyncio-compat
