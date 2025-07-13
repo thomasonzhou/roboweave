@@ -34,8 +34,8 @@ class UnitreeSdk2Bridge:
 
         self.num_motor = self.mj_model.nu
         self.dim_motor_sensor = MOTOR_SENSOR_NUM * self.num_motor
-        self.have_imu = False
-        self.have_frame_sensor = False
+        self.have_imu_ = False
+        self.have_frame_sensor_ = False
         self.dt = self.mj_model.opt.timestep
         self.idl_type = (self.num_motor > NUM_MOTOR_IDL_GO) # 0: unitree_go, 1: unitree_hg
 
@@ -119,6 +119,11 @@ class UnitreeSdk2Bridge:
 
     def PublishLowState(self):
         if self.mj_data != None:
+            # Check if we have enough sensor data
+            if len(self.mj_data.sensordata) < self.dim_motor_sensor:
+                print(f"Warning: Expected {self.dim_motor_sensor} motor sensors, but only found {len(self.mj_data.sensordata)} total sensors")
+                return
+                
             for i in range(self.num_motor):
                 self.low_state.motor_state[i].q = self.mj_data.sensordata[i]
                 self.low_state.motor_state[i].dq = self.mj_data.sensordata[
@@ -129,6 +134,10 @@ class UnitreeSdk2Bridge:
                 ]
 
             if self.have_frame_sensor_:
+                # Check if we have enough additional sensor data for IMU
+                if len(self.mj_data.sensordata) < self.dim_motor_sensor + 10:
+                    print(f"Warning: Expected IMU sensors after motor sensors, but only found {len(self.mj_data.sensordata)} total sensors")
+                    return
 
                 self.low_state.imu_state.quaternion[0] = self.mj_data.sensordata[
                     self.dim_motor_sensor + 0
