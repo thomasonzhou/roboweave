@@ -479,7 +479,6 @@
     <mesh name="paper_towel_main_group_model_2_vis" file="/home/thchzh/src/robocasa/robocasa/models/assets/fixtures/accessories/paper_towel_holders/holder_2/visuals/model_2.obj" scale="0.35 0.35 0.35"/>
     <mesh name="paper_towel_main_group_model_3_vis" file="/home/thchzh/src/robocasa/robocasa/models/assets/fixtures/accessories/paper_towel_holders/holder_2/visuals/model_3.obj" scale="0.35 0.35 0.35"/>
     <mesh name="utensil_holder_main_group_model_0_vis" file="/home/thchzh/src/robocasa/robocasa/models/assets/fixtures/accessories/utensil_holders/holder_1/visuals/model_0.obj" scale="0.35 0.35 0.35"/>
-    <mesh name="utensil_holder_main_group_model_1_vis" file="/home/thchzh/src/robocasa/robocasa/models/assets/fixtures/accessories/utensil_holders/holder_1/visuals/model_1.obj" scale="0.35 0.35 0.35"/>
     <mesh name="utensil_holder_main_group_model_2_vis" file="/home/thchzh/src/robocasa/robocasa/models/assets/fixtures/accessories/utensil_holders/holder_1/visuals/model_2.obj" scale="0.35 0.35 0.35"/>
     <mesh name="utensil_holder_main_group_model_3_vis" file="/home/thchzh/src/robocasa/robocasa/models/assets/fixtures/accessories/utensil_holders/holder_1/visuals/model_3.obj" scale="0.35 0.35 0.35"/>
     <mesh name="sink_island_group_model_0_vis" file="/home/thchzh/src/robocasa/robocasa/models/assets/fixtures/sinks/concrete_sink/visuals/model_0.obj" scale="0.916667 0.916667 0.916667"/>
