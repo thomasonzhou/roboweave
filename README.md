@@ -3,6 +3,8 @@
 **Daniel Siegel, Thomason Zhou**  
 _Weave Hackathon 2025_
 
+![RoboWeave Flow Builder](frontend/website/public/imgs/flowchart-demo.png)
+
 ## Abstract
 
 RoboWeave is a multimodal robot control pipeline that maps high-level prompts—expressed via natural language, images, or video—into structured robotic commands. It integrates the Google Gemini large multimodal model with model context protocol (MCP) servers to enable intuitive control of physical systems. The project features a comprehensive website with an interactive flow builder, demonstrating the integration of prompt engineering, multimodal reasoning, and real-time visualization capabilities.
@@ -24,8 +26,6 @@ The RoboWeave website provides a comprehensive interface for understanding and i
 - Seamless visual integration with homepage design
 - Based on elegant flow builder patterns with RoboWeave-specific customization
 
-![RoboWeave Flow Builder](frontend/website/public/imgs/flowchart-demo.png)
-*Interactive flow builder interface showing the complete RoboWeave pipeline with custom nodes for prompt input, LLM processing, motion planning, MCP protocol, robot execution, and Weave monitoring.*
 
 ## Architecture
 
