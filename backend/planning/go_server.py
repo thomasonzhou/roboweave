@@ -45,9 +45,13 @@ with agent_lib.Agent(
   TARGETS = {"Home", "Circle"}
 
   target = "Circle"
+
   state = agent.get_state()
 
-
+  def get_state():
+    state = agent.get_state()
+    return state
+  
   def flip():
     agent.set_mode("Flip")
     time.sleep(1.0)
@@ -57,7 +61,7 @@ with agent_lib.Agent(
 
   def stay_still():
     agent.set_mode("Quadruped")
-    state = agent.get_state()
+    state = get_state()
     set_goal(state.qpos[0] +0.3, state.qpos[1])
 
   def circle(run_time=None):
