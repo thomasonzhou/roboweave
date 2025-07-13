@@ -85,10 +85,6 @@ class UnitreeSdk2Bridge:
         self.low_cmd_suber = ChannelSubscriber(TOPIC_LOWCMD, LowCmd_)
         self.low_cmd_suber.Init(self.LowCmdHandler, 10)
 
-        # Initialize rudimentary gait generator for sport mode commands
-        self.gait_generator = RudimentaryGaitGenerator(dt=self.dt)
-        self.sport_mode_enabled = False  # Flag to enable sport mode control
-
         # joystick
         self.key_map = {
             "R1": 0,
@@ -111,12 +107,6 @@ class UnitreeSdk2Bridge:
 
     def LowCmdHandler(self, msg: LowCmd_):
         if self.mj_data != None:
-            # Check if sport mode is enabled - if so, ignore low-level commands
-            if self.sport_mode_enabled:
-                # Sport mode is controlling the robot, apply gait positions
-                self._apply_gait_to_simulation()
-                return
-                
             # Normal low-level command processing
             for i in range(self.num_motor):
                 self.mj_data.ctrl[i] = (
