@@ -5,91 +5,275 @@ _Weave Hackathon 2025_
 
 ## Abstract
 
-RoboWeave is a multimodal robot control pipeline that maps high-level prompts—expressed via natural language, images, or video—into structured robotic commands. It integrates the Google Gemini large multimodal model that calls on model context protocol (MCP) servers to enable intuitive control of physical systems. The project emphasizes the use of prompt engineering, multimodal reasoning, and real-time integration with the Weave platform for frontend interaction and visualization.
+RoboWeave is a multimodal robot control pipeline that maps high-level prompts—expressed via natural language, images, or video—into structured robotic commands. It integrates the Google Gemini large multimodal model with model context protocol (MCP) servers to enable intuitive control of physical systems. The project features a comprehensive website with an interactive flow builder, demonstrating the integration of prompt engineering, multimodal reasoning, and real-time visualization capabilities.
 
 ## System Overview
 
-The core objective of RoboWeave is to enable robotic actuation from semantically rich prompts. Input is collected via a Weave-intergrated frontend that reads sensor input, routed to Gemini for interpretation, and ultimately converted into commands to send to a backend motion planning pipeline. The architecture supports a mixture of text, image, and video inputs and is designed to generalize across multiple robotic tasks.
+The core objective of RoboWeave is to enable robotic actuation from semantically rich prompts. The system features a professional website with an interactive flow builder that allows users to visualize and customize the robot control pipeline. Input is collected via multimodal interfaces, routed to Gemini for interpretation, and ultimately converted into commands for backend motion planning. The architecture supports text, image, and video inputs and is designed to generalize across multiple robotic tasks.
+
+## Website and Interactive Demo
+
+The RoboWeave website provides a comprehensive interface for understanding and interacting with the robot control pipeline:
+
+**Homepage Features:**
+- Hero section with animated typewriter effect and dogs background
+- Features overview with six key capabilities
+- Architecture visualization showing four-component pipeline
+- Interactive demonstration scenarios
+- Team information and project details
+- Claude-inspired design with warm beige color palette
+
+**Interactive Flow Builder:**
+- Professional drag-and-drop interface for building robot control flows
+- Custom node types for each pipeline component
+- Real-time connection validation and auto-adjustment
+- Sidebar with available nodes for easy workflow construction
+- Seamless visual integration with homepage design
+- Based on elegant flow builder patterns with RoboWeave-specific customization
 
 ## Architecture
 
 **Pipeline Components:**
 
-1. **Weave Frontend Integration**
-   - Handles prompt input via typed text, image upload, or recorded video.
-   - Streams live actuator states and sensor readings from a robot
-   - Offers live feedback, status visualization, and demonstration playback.
-   - Provides an interface for operators to review prompt-to-behavior mappings.
+1. **Prompt Input Nodes**
+   - Text Input: Natural language commands with example prompts
+   - Image Input: Visual scene analysis for spatial understanding
+   - Video Input: Temporal motion analysis and demonstration learning
+   - Each input type has distinct visual styling and validation
 
-2. **Prompt Interpretation**
-   - Prompts are passed to Gemini, which performs multimodal reasoning and outputs structured descriptions of the intended robot behavior.
-   - Gemini's output includes explicit action representations (e.g., "walk forward 2 meters avoiding obstacles") as well as implicit spatial and temporal cues inferred from media.
+2. **LLM Processing Node**
+   - Gemini 1.5 Pro with 1M+ token context window
+   - Multimodal reasoning combining text, image, and video analysis
+   - Structured output generation for motion planning
+   - Real-time processing with fault tolerance
 
-3. **LLM Parsing and Planning Layer**
-   - Extracts semantic intent and translates it into discrete motion primitives.
-   - Maintains state awareness and accounts for feasibility based on robot capabilities.
+3. **Motion Planner Node**
+   - Converts semantic intent into discrete motion primitives
+   - Safety constraint validation and feasibility checking
+   - State-aware planning with collision avoidance
+   - Bezier curve-based smooth motion generation
 
-4. **Backend Execution**
-   - Commands are translated into MCP format (Model Context Protocol).
-   - Sent via fault-tolerant channels to the robot controller.
-   - Execution is monitored for safety, validity, and alignment with prompt expectations.
+4. **MCP Protocol Node**
+   - Model Context Protocol for fault-tolerant communication
+   - Structured command translation and validation
+   - Real-time status monitoring and error handling
+   - Protocol-compliant message formatting
+
+5. **Robot Execution Node**
+   - Physical robot actuation with MuJoCo integration
+   - Real-time safety monitoring and validation
+   - Execution feedback and status reporting
+   - Emergency stop and recovery mechanisms
+
+6. **Weave Monitoring Node**
+   - Real-time observability and performance tracking
+   - LLM call tracing and response analysis
+   - Performance metrics and evaluation capabilities
+   - Debug visualization and system insights
+
+## Algorithm Details
+
+**Motion Primitive Generation:**
+- Bezier curve-based motion planning with control points
+- Variable duration and velocity parameterization
+- Primary and speculative path generation for robust execution
+- Real-time collision detection and avoidance
+
+**AI Decision Making:**
+- Gemini 1.5 Pro processes multimodal inputs with structured prompting
+- JSON output format with motion primitives and reasoning
+- Consecutive failure handling with automatic fallback mechanisms
+- Context-aware state tracking for improved decision quality
+
+**Safety and Validation:**
+- Multi-layer validation: prompt interpretation, motion planning, execution
+- Real-time boundary detection and obstacle avoidance
+- Emergency stop mechanisms and recovery procedures
+- Execution monitoring with performance metrics
 
 ## Key Features
 
-- Multimodal Prompting: Supports text, images, and videos as input modalities.
-- LLM-Driven Reasoning: Leverages Gemini’s integrated text-vision model to interpret human intent in both explicit and latent forms.
-- Realtime Feedback Loop: Weave integration enables visualization of both prompts and resulting robotic behaviors in a continuous interaction loop.
-- MCP Control Interface: Encapsulates low-level robot actuation via MCP-compatible command streaming.
+**Multimodal Interface:**
+- Text prompts with natural language processing
+- Image analysis for spatial understanding and object detection
+- Video processing for temporal motion sequences and demonstrations
+- Unified interface handling all input modalities
+
+**Advanced AI Integration:**
+- Gemini 1.5 Pro with maximum context window support
+- Structured JSON output with Pydantic validation
+- Real-time reasoning with sub-2-second response times
+- Robust error handling and recovery mechanisms
+
+**Professional User Experience:**
+- Interactive flow builder with drag-and-drop functionality
+- Real-time visualization of pipeline components
+- Custom node types with detailed property panels
+- Responsive design with mobile compatibility
+
+**Observability and Monitoring:**
+- Complete LLM call tracing with Weights & Biases Weave
+- Performance metrics and evaluation dashboards
+- Debug capabilities and system insights
+- Real-time status monitoring and alerts
 
 ## Use Case Scenarios
 
-Three representative success cases were implemented and validated in the hackathon setting:
+Three representative success cases implemented and validated:
 
 1. **Forward Navigation Without Collision**
-   - User prompt: "Walk forward without hitting anything"
-   - System generates obstacle-aware straight-line motion using LLM and planner
+   - Prompt: "Walk forward without hitting anything"
+   - Visual scene analysis with obstacle detection
+   - Collision-free path planning with safety constraints
+   - Real-time execution monitoring
 
 2. **Orientation Change**
-   - User prompt: "Turn left 45 degrees"
-   - Pose change verified via simulation and robot telemetry
+   - Prompt: "Turn left 45 degrees"
+   - Precise angular motion calculation
+   - Controlled rotation with orientation verification
+   - Pose validation through simulation telemetry
 
-3. **Simple Task Execution**
-   - User prompt: "Stand up and initiate handshake"
-   - Combines pose planning with action sequence construction
+3. **Complex Task Execution**
+   - Prompt: "Stand up and initiate handshake"
+   - Multi-step task decomposition
+   - Sequential motion primitive coordination
+   - Task completion status monitoring
 
 ## Project Structure
 
 ```
 roboweave/
-├── frontend/            # Weave-based interface and prompt collection
+├── frontend/
+│   ├── website/                    # Main website application
+│   │   ├── src/
+│   │   │   ├── components/
+│   │   │   │   ├── navigation/     # Navigation components
+│   │   │   │   ├── sections/       # Homepage sections
+│   │   │   │   └── demo/          # Demo components
+│   │   │   ├── modules/
+│   │   │   │   ├── flow-builder/   # Interactive flow builder
+│   │   │   │   ├── nodes/          # Custom node types
+│   │   │   │   └── sidebar/        # Sidebar interface
+│   │   │   ├── pages/             # Route pages
+│   │   │   └── stores/            # State management
+│   │   ├── public/                # Static assets (logos, backgrounds)
+│   │   ├── package.json
+│   │   └── tsconfig.json
+│   ├── capture_demo/              # Live API client and verification
+│   ├── live_console/              # Console interface
+│   ├── wasd_stream.py            # Game widget with navigation
+│   └── requirements.txt
 ├── backend/
-│   ├── llm/             # Gemini interaction and parsing
-│   ├── planning/        # Prompt-to-motion translation
-│   └── mcp/         # MCP integration layer
-├── scripts/             # QA, telemetry, test cases
-├── docs/                # Architecture notes and presentation assets
+│   ├── assets/                    # 3D models and robot assets
+│   ├── go2.mjcf                  # MuJoCo model definition
+│   ├── scene_terrain.xml         # Simulation environment
+│   └── test.ipynb               # Development notebooks
+├── scripts/                       # Utilities and test cases
+├── docs/                         # Documentation and presentations
 └── README.md
 ```
 
+## Technical Stack
+
+**Frontend:**
+- React 18 with TypeScript
+- TanStack Router for navigation
+- React Flow (@xyflow/react) for flow builder
+- UnoCSS for styling with Claude-inspired design
+- Zustand for state management
+
+**Backend:**
+- Python 3.10+ with asyncio support
+- Google Gemini 1.5 Pro API integration
+- MuJoCo for physics simulation
+- Model Context Protocol (MCP) implementation
+- PySide6 for game widget interface
+
+**Development Tools:**
+- Vite for build tooling
+- ESLint and Prettier for code quality
+- TypeScript for type safety
+- Weights & Biases Weave for observability
+
+**Design System:**
+- Claude-inspired typography with Inter font
+- Warm beige and amber color palette
+- Glassmorphism effects with backdrop blur
+- Responsive design with mobile optimization
+
 ## Dependencies
 
-- Google Gemini API (private access)
-- MuJoCo (info TBD)
-- Weave developer tools and presentation layer
-- MCP-compatible robotic controller (real or simulated)
-- Python 3.10+
+**Core Requirements:**
+- Google Gemini API access
+- Node.js 18+ and npm/yarn
+- Python 3.10+ with pip
+- Modern web browser with ES2020 support
+
+**Python Dependencies:**
+- google-genai for Gemini integration
+- weave for observability and tracking
+- PySide6 for UI components
+- pydantic for data validation
+- python-dotenv for environment management
+
+**JavaScript Dependencies:**
+- @xyflow/react for flow building
+- @tanstack/react-router for routing
+- zustand for state management
+- @unocss/vite for styling
+
+## Installation and Setup
+
+1. **Clone Repository:**
+   ```bash
+   git clone https://github.com/username/roboweave.git
+   cd roboweave
+   ```
+
+2. **Setup Environment:**
+   ```bash
+   # Create .env file in frontend directory
+   echo "GEMINI_API_KEY=your_api_key_here" > frontend/.env
+   ```
+
+3. **Install Frontend Dependencies:**
+   ```bash
+   cd frontend/website
+   npm install
+   npm run dev
+   ```
+
+4. **Install Python Dependencies:**
+   ```bash
+   cd frontend
+   pip install -r requirements.txt
+   ```
+
+5. **Run Game Widget:**
+   ```bash
+   cd frontend
+   python wasd_stream.py
+   ```
 
 ## Deliverables (Weave Hackathon 2025)
 
-- End-to-end demonstrator for prompt-driven robot control
-- Fully integrated frontend-backend pipeline with Weave tracing
-- Evaluation of multimodal reasoning performance for real-time robotic control
-- Narrated presentation video and source-level documentation
+- Complete website with interactive flow builder demonstrating robot control pipeline
+- Professional user interface with drag-and-drop workflow construction
+- End-to-end integration from multimodal prompts to robot execution
+- Real-time observability with Weights & Biases Weave tracking
+- Comprehensive documentation and source code
+- Live demonstration of three validated use cases
 
 ## Team
 
-Daniel Siegel [siegel.bio](https://www.siegel.bio)
-Thomason Zhou [thzhou.com](https://thzhou.com/)
+**Daniel Siegel** - Hardware & Systems Engineering  
+Website: [siegel.bio](https://siegel.bio)  
+Email: danieledisonsiegel@gmail.com  
+Focus: Embedded robotics platforms, low-level control systems, real-time firmware, hardware-software integration
 
-Affiliated with the 2025 Weave Hackathon  
-For inquiries: danieledisonsiegel@gmail.com
+**Thomason Zhou** - Robotics & Systems Engineering  
+Website: [thzhou.com](https://thzhou.com)  
+Email: contact@thzhou.com  
+Focus: Robotic mobility and HRI, ROS2 control stacks, state-estimation for exoskeletons, MCP-integrated perception pipelines
+
+Developed for the 2025 Weave Hackathon showcasing integration of advanced AI systems with robotic control platforms.
