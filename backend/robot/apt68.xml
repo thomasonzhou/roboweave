@@ -1,7 +1,7 @@
 <mujoco model="base">
   <compiler angle="radian" meshdir="assets/"/>
 
-  <option impratio="20" density="1.2" viscosity="2e-05" cone="elliptic"/>
+  <option impratio="10" density="1000" viscosity="0" iterations="50" tolerance="1e-10" cone="elliptic" timestep="0.002"/>
 
   <size njmax="5000" nconmax="5000"/>
 
@@ -719,10 +719,14 @@
       <geom name="right_eef_target_box" size="0.05 0.05 0.05" type="box" contype="0" conaffinity="0" group="2" rgba="0.208 0.314 0.439 0.5"/>
       <geom name="right_eef_target_sphere" size="0.01" contype="0" conaffinity="0" group="2" rgba="0.208 0.314 0.439 0.8"/>
     </body>
-    <body name="robot0_base" pos="2.9 -1.2 0.7" quat="0.707107 0 0 0.707107">
+    <body name="robot0_base" pos="2.9 -1.2 0.5" quat="1 0 0 0">
       <freejoint />
       <include file="go2.mjcf"/>
     </body>
+    
+    <!-- Add a proper ground plane for the robot -->
+    <geom name="ground_plane" pos="0 0 0" size="10 10 0.1" type="plane" material="floor_room_wall_mat" />
+    
     <body name="wall_room_main" pos="3.2 0.02 1.5" quat="-0.707107 0.707107 0 0">
       <geom name="wall_room_g0" size="3.24 1.5 0.02" type="box" rgba="0.5 0 0 1"/>
       <geom name="wall_room_g0_vis" size="3.24 1.5 0.02" type="box" contype="0" conaffinity="0" group="1" mass="0" material="wall_room_wall_mat"/>
@@ -4692,5 +4696,6 @@
       <site name="distr_cab_default_site" pos="0 0 0" size="0.0018" rgba="1 0 0 0"/>
     </body>
   </worldbody>
+
 
 </mujoco>
