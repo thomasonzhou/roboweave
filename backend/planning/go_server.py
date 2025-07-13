@@ -47,20 +47,35 @@ with agent_lib.Agent(
   target = "Circle"
   state = agent.get_state()
 
-  start_time = time.time()
-  while True:
+
+  def flip():
+    agent.set_mode("Flip")
+    time.sleep(1.0)
+  
+  def set_goal(x, y):
+    agent.set_mocap({"goal": mjpc_parameters.Pose(pos=[x, y, 0.26], quat=[1, 0, 0, 0])})
+
+  def stay_still():
+    agent.set_mode("Quadruped")
     state = agent.get_state()
-    print(f"Current state: {state.qpos[:2]}")
-    if target == "Circle":
+    set_goal(state.qpos[0] +0.3, state.qpos[1])
+
+  def circle(run_time=None):
+    if run_time is None:
+      run_time = 10000
+
+    start_time = time.time()
+    while time.time() - start_time < run_time:
       current_time = time.time() - start_time
-          
+            
       # Create a circular motion for the goal, counter-clockwise
       radius = 3.7
       x = radius * math.cos(-current_time * 0.5)
       y = radius * math.sin(-current_time * 0.5)
       z = 0.26
-      
-      goal_pose = mjpc_parameters.Pose(pos=[x, y, z], quat=[1, 0, 0, 0])
-      agent.set_mocap({"goal": goal_pose})
-      
-      time.sleep(0.01)  # Small delay
+      set_goal(x, y)
+
+  while True:
+    stay_still()
+      # flip()
+      # circle(1000000000000)
