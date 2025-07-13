@@ -25,6 +25,7 @@ model_path = (
 )
 model = mujoco.MjModel.from_xml_path(str(model_path))
 
+CIRCLE = True  # Set to True for circular motion, False for static goal
 # Run GUI
 with agent_lib.Agent(
     server_binary_path=pathlib.Path(agent_lib.__file__).parent
@@ -35,15 +36,16 @@ with agent_lib.Agent(
 ) as agent:
   start_time = time.time()
   while True:
-    current_time = time.time() - start_time
-        
-    # Create a circular motion for the goal
-    radius = 2.0
-    x = radius * math.cos(current_time * 0.5)
-    y = radius * math.sin(current_time * 0.5)
-    z = 0.26
-    
-    goal_pose = mjpc_parameters.Pose(pos=[x, y, z], quat=[1, 0, 0, 0])
-    agent.set_mocap({"goal": goal_pose})
-    
-    time.sleep(0.01)  # Small delay
+    if CIRCLE:
+      current_time = time.time() - start_time
+          
+      # Create a circular motion for the goal, counter-clockwise
+      radius = 3.7
+      x = radius * math.cos(-current_time * 0.5)
+      y = radius * math.sin(-current_time * 0.5)
+      z = 0.26
+      
+      goal_pose = mjpc_parameters.Pose(pos=[x, y, z], quat=[1, 0, 0, 0])
+      agent.set_mocap({"goal": goal_pose})
+      
+      time.sleep(0.01)  # Small delay
