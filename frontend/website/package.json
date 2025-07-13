@@ -60,7 +60,7 @@
         "unocss-preset-useful": "^0.4.2",
         "unplugin-auto-import": "^0.18.0",
         "vaul": "^0.9.1",
-        "vite": "^5.3.4",
+        "vite": "^5.4.19",
         "zustand": "^4.5.4"
     }
 }

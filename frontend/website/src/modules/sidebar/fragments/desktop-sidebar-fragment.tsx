@@ -43,6 +43,12 @@ export function DesktopSidebarFragment({ isMobileView, activePanel, setActivePan
                     <SidebarButtonItem active={activePanel === "node-properties"} onClick={() => setActivePanel("node-properties")}>
                         <div className="i-mynaui:layers-three size-5" />
                     </SidebarButtonItem>
+
+                    <div className="mx-a h-px w-4 bg-dark-100" />
+
+                    <SidebarButtonItem active={activePanel === "robot-control"} onClick={() => setActivePanel("robot-control")}>
+                        <div className="i-mynaui:robot size-5" />
+                    </SidebarButtonItem>
                 </div>
             </div>
         </div>

@@ -10,6 +10,7 @@ export enum BuilderNode {
     LLM_PROCESSING = "llm-processing",
     MOTION_PLANNER = "motion-planner",
     MCP_PROTOCOL = "mcp-protocol",
+    MCP_CONTROL = "mcp-control",
     ROBOT_EXECUTION = "robot-execution",
     WEAVE_MONITORING = "weave-monitoring",
 }

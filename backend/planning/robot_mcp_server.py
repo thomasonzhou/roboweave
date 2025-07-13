@@ -12,6 +12,7 @@ import json
 import time
 import math
 import pathlib
+import threading
 from mcp.server.fastmcp import FastMCP
 import mujoco
 from mujoco_mpc import agent as agent_lib
@@ -22,7 +23,8 @@ mcp = FastMCP("robot-control")
 
 # Global agent instance
 _agent = None
-_agent_lock = asyncio.Lock()
+_agent_lock = threading.Lock()
+_agent_thread = None
 
 def _get_model_path():
     """Get the path to the robot model."""
@@ -31,24 +33,43 @@ def _get_model_path():
         / "robot/tasks/quadruped/task_flat.xml"
     )
 
+def _start_agent_in_thread():
+    """Start the agent in a separate thread to enable MuJoCo viewer."""
+    global _agent
+    
+    model_path = _get_model_path()
+    model = mujoco.MjModel.from_xml_path(str(model_path))
+    
+    _agent = agent_lib.Agent(
+        server_binary_path=pathlib.Path(agent_lib.__file__).parent
+        / "mjpc"
+        / "ui_agent_server",
+        task_id="Quadruped Flat",
+        model=model,
+        extra_flags=["--planner_enabled"]  # Enable interactive viewer
+    )
+    # Initialize the agent context in the thread
+    _agent.__enter__()
+    
+    # Keep the thread alive to maintain the viewer
+    try:
+        while True:
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        _agent.__exit__(None, None, None)
+
 async def _get_agent():
     """Get or create the robot agent instance."""
-    global _agent
-    async with _agent_lock:
+    global _agent, _agent_thread
+    
+    with _agent_lock:
         if _agent is None:
-            model_path = _get_model_path()
-            model = mujoco.MjModel.from_xml_path(str(model_path))
+            # Start agent in a separate thread to enable MuJoCo viewer
+            _agent_thread = threading.Thread(target=_start_agent_in_thread, daemon=True)
+            _agent_thread.start()
             
-            _agent = agent_lib.Agent(
-                server_binary_path=pathlib.Path(agent_lib.__file__).parent
-                / "mjpc"
-                / "ui_agent_server",
-                task_id="Quadruped Flat",
-                model=model,
-                extra_flags=["--planner_enabled"]  # Enable interactive viewer
-            )
-            # Initialize the agent context
-            await asyncio.get_event_loop().run_in_executor(None, _agent.__enter__)
+            # Wait a moment for the agent to initialize
+            time.sleep(2.0)
         
         return _agent
 @mcp.tool()
