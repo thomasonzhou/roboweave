@@ -536,7 +536,7 @@
       <geom name="right_eef_target_box" size="0.05 0.05 0.05" type="box" contype="0" conaffinity="0" group="2" rgba="0.208 0.314 0.439 0.5"/>
       <geom name="right_eef_target_sphere" size="0.01" contype="0" conaffinity="0" group="2" rgba="0.208 0.314 0.439 0.8"/>
     </body>
-    <body name="robot0_base" pos="2.9 -1.8 0" quat="0.707107 0 0 0.707107">
+    <body name="robot0_base" pos="2.9 -1.8 0.5" quat="0.707107 0 0 0.707107">
       <freejoint />
       <include file="go2.mjcf"/>
     </body>
