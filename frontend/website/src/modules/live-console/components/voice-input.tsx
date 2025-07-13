@@ -67,6 +67,13 @@ export function VoiceInput({ state, actions, recentResponses, autoExecute }: Voi
             </span>
           </button>
 
+          {/* Debug Info */}
+          <div className="mt-2 text-xs text-gray-500">
+            Connected: {state.isConnected ? 'Yes' : 'No'} | 
+            Listening: {state.isListening ? 'Yes' : 'No'} | 
+            Processing: {state.isProcessing ? 'Yes' : 'No'}
+          </div>
+
           {/* Status Text */}
           <div className="mt-4">
             <p className="text-lg font-medium text-gray-800">
@@ -111,7 +118,7 @@ export function VoiceInput({ state, actions, recentResponses, autoExecute }: Voi
             onChange={(e) => setTextInput(e.target.value)}
             placeholder="Type a command (e.g., 'move forward', 'turn left', 'stop')"
             disabled={isProcessingText || !state.isConnected}
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-gray-900 placeholder-gray-500"
           />
           <button
             type="submit"
@@ -146,7 +153,7 @@ export function VoiceInput({ state, actions, recentResponses, autoExecute }: Voi
                   if (form) form.requestSubmit();
                 }}
                 disabled={isProcessingText || !state.isConnected}
-                className="px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+                className="px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors text-gray-700 hover:text-gray-900"
               >
                 {cmd}
               </button>

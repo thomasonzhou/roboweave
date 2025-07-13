@@ -32,7 +32,19 @@ export class SpeechRecognitionService {
 
   private checkSupport(): void {
     // Check for Web Speech API support
-    this.isSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
+    const hasWebkitSpeechRecognition = 'webkitSpeechRecognition' in window;
+    const hasSpeechRecognition = 'SpeechRecognition' in window;
+    const hasUserMedia = 'mediaDevices' in navigator && 'getUserMedia' in navigator.mediaDevices;
+    
+    this.isSupported = (hasWebkitSpeechRecognition || hasSpeechRecognition) && hasUserMedia;
+    
+    console.log('Speech recognition support check:', {
+      webkitSpeechRecognition: hasWebkitSpeechRecognition,
+      speechRecognition: hasSpeechRecognition,
+      userMedia: hasUserMedia,
+      isSupported: this.isSupported,
+      userAgent: navigator.userAgent
+    });
   }
 
   private initializeRecognition(): void {
@@ -112,14 +124,31 @@ export class SpeechRecognitionService {
   }
 
   public startListening(): void {
-    if (!this.isSupported || !this.recognition || this.isListening) return;
-
-    try {
-      this.recognition.start();
-    } catch (error) {
-      console.error('Failed to start speech recognition:', error);
-      this.onErrorCallback?.('Failed to start listening');
+    if (!this.isSupported || !this.recognition || this.isListening) {
+      console.warn('Cannot start listening:', {
+        isSupported: this.isSupported,
+        hasRecognition: !!this.recognition,
+        isListening: this.isListening
+      });
+      return;
     }
+
+    // Request microphone permission first
+    navigator.mediaDevices?.getUserMedia({ audio: true })
+      .then(() => {
+        console.log('Microphone permission granted');
+        try {
+          this.recognition!.start();
+          console.log('Speech recognition start() called');
+        } catch (error) {
+          console.error('Failed to start speech recognition:', error);
+          this.onErrorCallback?.('Failed to start listening');
+        }
+      })
+      .catch((error) => {
+        console.error('Microphone permission denied:', error);
+        this.onErrorCallback?.('Microphone permission required for voice commands');
+      });
   }
 
   public stopListening(): void {

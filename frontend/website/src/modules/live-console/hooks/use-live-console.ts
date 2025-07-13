@@ -132,10 +132,12 @@ export function useLiveConsole(config: LiveConsoleConfig = {}) {
   }, []);
 
   const handleSpeechResult = useCallback(async (result: SpeechRecognitionResult) => {
+    console.log('Speech result received:', result);
     setState(prev => ({ ...prev, currentTranscript: result.transcript }));
 
     // Only process final results with sufficient confidence
     if (result.isFinal && result.confidence >= (config.confidenceThreshold || 0.7)) {
+      console.log('Processing final speech result:', result.transcript);
       setState(prev => ({ ...prev, isProcessing: true, lastCommand: result.transcript }));
 
       try {
@@ -246,11 +248,14 @@ export function useLiveConsole(config: LiveConsoleConfig = {}) {
   };
 
   const startListening = useCallback(() => {
+    console.log('startListening called');
     if (!speechRecognitionService.getIsSupported()) {
+      console.error('Speech recognition not supported');
       setState(prev => ({ ...prev, error: 'Speech recognition not supported' }));
       return;
     }
 
+    console.log('Starting speech recognition...');
     setState(prev => ({ ...prev, error: null }));
     speechRecognitionService.startListening();
   }, []);
