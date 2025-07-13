@@ -1,27 +1,16 @@
 /**
- * Live Consol}
-
-export interface LiveConsoleStats {
-  sessionDuration: number;
-  commandCount: number;
-  successfulCommands: number;
-  errorCount: number;
-  totalProcessingTime: number;
-}
-
-export interface LiveConsoleConfig {ntegrates speech recognition, Gemini processing, and robot control
+ * Live Console Hook
+ * Integrates text commands, Gemini processing, and robot control
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { speechRecognitionService, type SpeechRecognitionResult } from '../services/speech-recognition';
 import { GeminiLiveService, type GeminiResponse, type RobotCommand } from '../services/gemini-live';
 import { useRobotControl } from '~/hooks/use-robot-control';
 
 export interface LiveConsoleState {
-  isListening: boolean;
   isProcessing: boolean;
   isConnected: boolean;
-  currentTranscript: string;
+  currentCommand: string;
   lastCommand: string;
   error: string | null;
   sessionId: string;
@@ -38,16 +27,14 @@ export interface LiveConsoleStats {
 interface LiveConsoleConfig {
   backendUrl?: string;
   autoExecuteCommands?: boolean;
-  confidenceThreshold?: number;
   maxProcessingTime?: number;
 }
 
 export function useLiveConsole(config: LiveConsoleConfig = {}) {
   const [state, setState] = useState<LiveConsoleState>({
-    isListening: false,
     isProcessing: false,
     isConnected: false,
-    currentTranscript: '',
+    currentCommand: '',
     lastCommand: '',
     error: null,
     sessionId: ''
@@ -115,78 +102,6 @@ export function useLiveConsole(config: LiveConsoleConfig = {}) {
     return () => clearInterval(interval);
   }, []);
 
-  // Set up speech recognition callbacks
-  useEffect(() => {
-    if (!speechRecognitionService.getIsSupported()) {
-      setState(prev => ({ ...prev, error: 'Speech recognition not supported in this browser' }));
-      return;
-    }
-
-    speechRecognitionService.onResult(handleSpeechResult);
-    speechRecognitionService.onError(handleSpeechError);
-    speechRecognitionService.onStatusChange(handleSpeechStatusChange);
-
-    return () => {
-      speechRecognitionService.destroy();
-    };
-  }, []);
-
-  const handleSpeechResult = useCallback(async (result: SpeechRecognitionResult) => {
-    console.log('Speech result received:', result);
-    setState(prev => ({ ...prev, currentTranscript: result.transcript }));
-
-    // Only process final results with sufficient confidence
-    if (result.isFinal && result.confidence >= (config.confidenceThreshold || 0.7)) {
-      console.log('Processing final speech result:', result.transcript);
-      setState(prev => ({ ...prev, isProcessing: true, lastCommand: result.transcript }));
-
-      try {
-        if (!geminiServiceRef.current) {
-          throw new Error('Gemini service not initialized');
-        }
-
-        const response = await geminiServiceRef.current.processVoiceCommand(result);
-        
-        setRecentResponses(prev => [response, ...prev.slice(0, 9)]); // Keep last 10 responses
-        
-        setStats(prev => ({
-          ...prev,
-          commandCount: prev.commandCount + 1,
-          totalProcessingTime: prev.totalProcessingTime + response.processingTime
-        }));
-
-        // Execute robot commands if auto-execute is enabled
-        if (config.autoExecuteCommands !== false && response.commands.length > 0) {
-          await executeRobotCommands(response.commands);
-        }
-
-        setState(prev => ({ ...prev, isProcessing: false, error: null }));
-
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        setState(prev => ({ 
-          ...prev, 
-          isProcessing: false, 
-          error: `Processing failed: ${errorMessage}`
-        }));
-        
-        setStats(prev => ({ ...prev, errorCount: prev.errorCount + 1 }));
-      }
-    }
-  }, [config.autoExecuteCommands, config.confidenceThreshold]);
-
-  const handleSpeechError = useCallback((error: string) => {
-    setState(prev => ({ ...prev, error: `Speech recognition error: ${error}` }));
-  }, []);
-
-  const handleSpeechStatusChange = useCallback((status: 'listening' | 'stopped' | 'error') => {
-    setState(prev => ({ 
-      ...prev, 
-      isListening: status === 'listening',
-      error: status === 'error' ? 'Speech recognition error' : prev.error
-    }));
-  }, []);
-
   const executeRobotCommands = async (commands: RobotCommand[]) => {
     for (const command of commands) {
       try {
@@ -247,23 +162,6 @@ export function useLiveConsole(config: LiveConsoleConfig = {}) {
     }
   };
 
-  const startListening = useCallback(() => {
-    console.log('startListening called');
-    if (!speechRecognitionService.getIsSupported()) {
-      console.error('Speech recognition not supported');
-      setState(prev => ({ ...prev, error: 'Speech recognition not supported' }));
-      return;
-    }
-
-    console.log('Starting speech recognition...');
-    setState(prev => ({ ...prev, error: null }));
-    speechRecognitionService.startListening();
-  }, []);
-
-  const stopListening = useCallback(() => {
-    speechRecognitionService.stopListening();
-  }, []);
-
   const clearError = useCallback(() => {
     setState(prev => ({ ...prev, error: null }));
   }, []);
@@ -283,7 +181,7 @@ export function useLiveConsole(config: LiveConsoleConfig = {}) {
     setState(prev => ({
       ...prev,
       sessionId: geminiServiceRef.current?.getSessionId() || '',
-      currentTranscript: '',
+      currentCommand: '',
       lastCommand: '',
       error: null
     }));
@@ -302,7 +200,7 @@ export function useLiveConsole(config: LiveConsoleConfig = {}) {
       ...prev, 
       isProcessing: true, 
       lastCommand: text.trim(),
-      currentTranscript: text.trim()
+      currentCommand: text.trim()
     }));
 
     try {
@@ -311,7 +209,7 @@ export function useLiveConsole(config: LiveConsoleConfig = {}) {
       }
 
       // Create a synthetic speech result for text input
-      const textResult: SpeechRecognitionResult = {
+      const textResult = {
         transcript: text.trim(),
         confidence: 1.0,
         isFinal: true,
@@ -357,13 +255,10 @@ export function useLiveConsole(config: LiveConsoleConfig = {}) {
     executionHistory,
     robotState,
     actions: {
-      startListening,
-      stopListening,
       clearError,
       resetSession,
       executeCommand,
       processTextCommand
-    },
-    isSupported: speechRecognitionService.getIsSupported()
+    }
   };
 }

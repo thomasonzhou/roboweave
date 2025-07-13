@@ -1,11 +1,11 @@
 /**
  * Live Console Component
- * Main interface for voice-controlled robot interaction with Gemini and Weave observability
+ * Main interface for text-controlled robot interaction with Gemini and Weave observability
  */
 
 import { useState } from 'react';
 import { useLiveConsole } from '../hooks/use-live-console';
-import { VoiceInput } from './voice-input';
+import { TextInput } from './voice-input';
 import { CommandHistory } from './command-history';
 import { WeaveObservability } from './weave-observability';
 import { RobotStatus } from './robot-status';
@@ -15,29 +15,28 @@ interface LiveConsoleProps {
   className?: string;
 }
 
-type TabType = 'voice' | 'history' | 'weave' | 'robot';
+type TabType = 'text' | 'history' | 'weave' | 'robot';
 
 export function LiveConsole({ 
   autoExecuteCommands = true,
   className = '' 
 }: LiveConsoleProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('voice');
+  const [activeTab, setActiveTab] = useState<TabType>('text');
 
   const liveConsole = useLiveConsole({
     backendUrl: 'http://localhost:8000',
-    autoExecuteCommands,
-    confidenceThreshold: 0.7
+    autoExecuteCommands
   });
 
-  const { state, stats, recentResponses, executionHistory, robotState, actions, isSupported } = liveConsole;
+  const { state, stats, recentResponses, executionHistory, robotState, actions } = liveConsole;
 
   const tabs = [
     { 
-      id: 'voice' as TabType, 
-      label: 'Voice Control', 
-      icon: '🎤', 
-      count: state.isListening ? 1 : 0,
-      color: state.isListening ? 'text-green-600' : 'text-gray-600'
+      id: 'text' as TabType, 
+      label: 'Text Control', 
+      icon: '⌨️', 
+      count: state.isProcessing ? 1 : 0,
+      color: state.isProcessing ? 'text-yellow-600' : 'text-gray-600'
     },
     { 
       id: 'history' as TabType, 
@@ -62,22 +61,6 @@ export function LiveConsole({
     }
   ];
 
-  if (!isSupported) {
-    return (
-      <div className={`bg-red-50 border border-red-200 rounded-lg p-6 ${className}`}>
-        <div className="text-center">
-          <div className="text-4xl mb-4">⚠️</div>
-          <h3 className="text-lg font-semibold text-red-800 mb-2">
-            Speech Recognition Not Supported
-          </h3>
-          <p className="text-red-600">
-            Your browser doesn't support the Web Speech API. Please use Chrome, Safari, or Edge.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className={`bg-white rounded-lg border shadow-sm flex flex-col h-full ${className}`}>
       {/* Header */}
@@ -88,21 +71,17 @@ export function LiveConsole({
               RoboWeave Live Console
             </h2>
             <p className="text-sm text-gray-600">
-              Voice-controlled robot interaction with AI observability
+              Text-controlled robot interaction with AI observability
             </p>
           </div>
           
           {/* Connection & Processing Status */}
           <div className="flex items-center space-x-4">
             {/* Processing indicator */}
-            {(state.isProcessing || state.isListening) && (
+            {state.isProcessing && (
               <div className="flex items-center space-x-2">
-                <div className={`w-2 h-2 rounded-full animate-pulse ${
-                  state.isProcessing ? 'bg-yellow-500' : 'bg-blue-500'
-                }`}></div>
-                <span className="text-xs text-gray-600">
-                  {state.isProcessing ? 'Processing...' : 'Listening...'}
-                </span>
+                <div className="w-2 h-2 rounded-full animate-pulse bg-yellow-500"></div>
+                <span className="text-xs text-gray-600">Processing...</span>
               </div>
             )}
             
@@ -178,8 +157,8 @@ export function LiveConsole({
 
       {/* Tab Content */}
       <div className="flex-1 overflow-hidden">
-        {activeTab === 'voice' && (
-          <VoiceInput
+        {activeTab === 'text' && (
+          <TextInput
             state={state}
             actions={actions}
             recentResponses={recentResponses}

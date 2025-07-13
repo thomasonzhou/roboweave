@@ -1,17 +1,15 @@
 /**
- * Voice Input Component
- * Handles voice recognition interface and real-time feedback
+ * Text Input Component
+ * Handles text command interface and real-time feedback
  */
 
 import { useState } from 'react';
 import type { LiveConsoleState } from '../hooks/use-live-console';
 import type { GeminiResponse, RobotCommand } from '../services/gemini-live';
 
-interface VoiceInputProps {
+interface TextInputProps {
   state: LiveConsoleState;
   actions: {
-    startListening: () => void;
-    stopListening: () => void;
     executeCommand: (commands: RobotCommand[]) => Promise<void>;
     processTextCommand: (text: string) => Promise<GeminiResponse | void>;
   };
@@ -19,7 +17,7 @@ interface VoiceInputProps {
   autoExecute: boolean;
 }
 
-export function VoiceInput({ state, actions, recentResponses, autoExecute }: VoiceInputProps) {
+export function TextInput({ state, actions, recentResponses, autoExecute }: TextInputProps) {
   const [selectedResponse, setSelectedResponse] = useState<GeminiResponse | null>(null);
   const [textInput, setTextInput] = useState('');
   const [isProcessingText, setIsProcessingText] = useState(false);
@@ -47,70 +45,9 @@ export function VoiceInput({ state, actions, recentResponses, autoExecute }: Voi
 
   return (
     <div className="h-full flex flex-col">
-      {/* Voice Control Section */}
-      <div className="p-6 border-b border-gray-200">
-        <div className="text-center">
-          {/* Microphone Button */}
-          <button
-            onClick={state.isListening ? actions.stopListening : actions.startListening}
-            disabled={state.isProcessing || !state.isConnected}
-            className={`w-20 h-20 rounded-full border-4 transition-all duration-200 ${
-              state.isListening
-                ? 'bg-red-500 border-red-300 hover:bg-red-600 animate-pulse'
-                : state.isProcessing
-                ? 'bg-yellow-500 border-yellow-300 animate-spin'
-                : 'bg-blue-500 border-blue-300 hover:bg-blue-600'
-            } ${!state.isConnected ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-          >
-            <span className="text-white text-2xl">
-              {state.isProcessing ? '⏳' : state.isListening ? '🔴' : '🎤'}
-            </span>
-          </button>
-
-          {/* Debug Info */}
-          <div className="mt-2 text-xs text-gray-500">
-            Connected: {state.isConnected ? 'Yes' : 'No'} | 
-            Listening: {state.isListening ? 'Yes' : 'No'} | 
-            Processing: {state.isProcessing ? 'Yes' : 'No'}
-          </div>
-
-          {/* Status Text */}
-          <div className="mt-4">
-            <p className="text-lg font-medium text-gray-800">
-              {state.isProcessing
-                ? 'Processing command...'
-                : state.isListening
-                ? 'Listening...'
-                : 'Click to start voice control'
-              }
-            </p>
-            
-            {state.currentTranscript && (
-              <p className="text-sm text-gray-600 mt-2 italic">
-                "{state.currentTranscript}"
-              </p>
-            )}
-
-            {state.lastCommand && state.lastCommand !== state.currentTranscript && (
-              <p className="text-sm text-blue-600 mt-2 font-medium">
-                Last: "{state.lastCommand}"
-              </p>
-            )}
-          </div>
-
-          {/* Auto-execute indicator */}
-          {autoExecute && (
-            <div className="mt-3 inline-flex items-center px-3 py-1 rounded-full text-xs bg-green-100 text-green-700">
-              <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-              Auto-execute enabled
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* Text Input Section */}
-      <div className="p-4 border-b border-gray-200 bg-gray-50">
-        <h3 className="text-sm font-semibold text-gray-700 mb-3">Text Commands</h3>
+      <div className="p-6 border-b border-gray-200">
+        <h3 className="text-lg font-semibold text-gray-700 mb-4">Robot Commands</h3>
         <form onSubmit={handleTextSubmit} className="flex space-x-2">
           <input
             type="text"
@@ -118,25 +55,29 @@ export function VoiceInput({ state, actions, recentResponses, autoExecute }: Voi
             onChange={(e) => setTextInput(e.target.value)}
             placeholder="Type a command (e.g., 'move forward', 'turn left', 'stop')"
             disabled={isProcessingText || !state.isConnected}
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-gray-900 placeholder-gray-500"
+            className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-gray-900 placeholder-gray-500 text-lg"
           />
           <button
             type="submit"
             disabled={!textInput.trim() || isProcessingText || !state.isConnected}
-            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium"
           >
-            {isProcessingText ? '⏳' : '➤'}
+            {isProcessingText ? '⏳' : 'Send'}
           </button>
         </form>
         
-        <div className="mt-2 text-xs text-gray-500">
-          Type commands or use voice input above. {autoExecute ? 'Commands will execute automatically.' : 'Commands will be queued for manual execution.'}
+        <div className="mt-3 text-sm text-gray-600">
+          {state.isConnected ? (
+            <>Type commands or use quick actions below. {autoExecute ? 'Commands will execute automatically.' : 'Commands will be queued for manual execution.'}</>
+          ) : (
+            <span className="text-red-600">⚠️ Backend service disconnected</span>
+          )}
         </div>
         
         {/* Quick Command Buttons */}
-        <div className="mt-3">
-          <p className="text-xs text-gray-600 mb-2">Quick Commands:</p>
-          <div className="flex flex-wrap gap-2">
+        <div className="mt-4">
+          <p className="text-sm text-gray-700 mb-3 font-medium">Quick Commands:</p>
+          <div className="grid grid-cols-3 gap-2">
             {[
               'move forward',
               'move backward', 
@@ -153,7 +94,7 @@ export function VoiceInput({ state, actions, recentResponses, autoExecute }: Voi
                   if (form) form.requestSubmit();
                 }}
                 disabled={isProcessingText || !state.isConnected}
-                className="px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors text-gray-700 hover:text-gray-900"
+                className="px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors text-gray-700 hover:text-gray-900 hover:border-gray-400"
               >
                 {cmd}
               </button>
@@ -169,7 +110,7 @@ export function VoiceInput({ state, actions, recentResponses, autoExecute }: Voi
         {recentResponses.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             <div className="text-4xl mb-2">🎯</div>
-            <p>No commands yet. Try saying:</p>
+            <p>No commands yet. Try typing:</p>
             <div className="mt-2 text-sm space-y-1">
               <p>"Move forward"</p>
               <p>"Turn left"</p>
@@ -288,7 +229,7 @@ export function VoiceInput({ state, actions, recentResponses, autoExecute }: Voi
       {/* Instructions */}
       <div className="border-t border-gray-200 p-4 bg-gray-50">
         <div className="text-xs text-gray-600">
-          <p className="font-medium mb-1">Voice Commands:</p>
+          <p className="font-medium mb-1">Available Commands:</p>
           <div className="grid grid-cols-2 gap-1">
             <span>• "Move forward/back"</span>
             <span>• "Turn left/right"</span>
