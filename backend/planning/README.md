@@ -22,3 +22,8 @@ Activate with something like:
 ```sh
 source ~/src/mujoco_mpc/.venv/bin/activate
 ```
+
+The main command is 
+```sh
+python3 robot_http_server.py
+```

@@ -15,7 +15,7 @@ import pathlib
 import signal
 import sys
 from mcp.server.fastmcp import FastMCP
-from mujoco_mcp import mjpc_parameters
+from mujoco_mpc import mjpc_parameters
 
 # Import shared robot agent
 from robot_agent import get_robot_agent, cleanup_robot_agent
@@ -366,7 +366,7 @@ def signal_handler(signum, frame):
     cleanup_robot_agent()
     sys.exit(0)
 
-async def run_mcp_server_with_agent():
+def run_mcp_server_with_agent():
     """Run the MCP server while maintaining the agent in the main thread."""
     # Set up signal handlers for graceful shutdown
     signal.signal(signal.SIGINT, signal_handler)
@@ -381,7 +381,7 @@ async def run_mcp_server_with_agent():
         # Run the MCP server
         print("Starting MCP server...")
         # The MCP server will handle requests while the agent runs in the main thread
-        await mcp.run_async(transport='stdio')
+        mcp.run(transport='stdio')
         
     except KeyboardInterrupt:
         print("Keyboard interrupt received")
@@ -392,4 +392,4 @@ async def run_mcp_server_with_agent():
 
 if __name__ == "__main__":
     # Run the integrated server with agent in main thread
-    asyncio.run(run_mcp_server_with_agent())
+    run_mcp_server_with_agent()
