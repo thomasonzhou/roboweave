@@ -3,7 +3,7 @@
  * Main interface for voice-controlled robot interaction with Gemini and Weave observability
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useLiveConsole } from '../hooks/use-live-console';
 import { VoiceInput } from './voice-input';
 import { CommandHistory } from './command-history';
@@ -11,7 +11,6 @@ import { WeaveObservability } from './weave-observability';
 import { RobotStatus } from './robot-status';
 
 interface LiveConsoleProps {
-  geminiApiKey?: string;
   autoExecuteCommands?: boolean;
   className?: string;
 }
@@ -19,38 +18,18 @@ interface LiveConsoleProps {
 type TabType = 'voice' | 'history' | 'weave' | 'robot';
 
 export function LiveConsole({ 
-  geminiApiKey, 
   autoExecuteCommands = true,
   className = '' 
 }: LiveConsoleProps) {
   const [activeTab, setActiveTab] = useState<TabType>('voice');
-  const [apiKey, setApiKey] = useState(geminiApiKey || '');
-  const [showApiKeyInput, setShowApiKeyInput] = useState(!geminiApiKey);
 
   const liveConsole = useLiveConsole({
-    geminiApiKey: apiKey,
+    backendUrl: 'http://localhost:8000',
     autoExecuteCommands,
     confidenceThreshold: 0.7
   });
 
   const { state, stats, recentResponses, executionHistory, robotState, actions, isSupported } = liveConsole;
-
-  useEffect(() => {
-    // Try to get API key from localStorage if not provided
-    if (!apiKey) {
-      const savedKey = localStorage.getItem('gemini_api_key');
-      if (savedKey) {
-        setApiKey(savedKey);
-        setShowApiKeyInput(false);
-      }
-    }
-  }, [apiKey]);
-
-  const handleApiKeySubmit = (key: string) => {
-    setApiKey(key);
-    localStorage.setItem('gemini_api_key', key);
-    setShowApiKeyInput(false);
-  };
 
   const tabs = [
     { 
@@ -93,48 +72,6 @@ export function LiveConsole({
           </h3>
           <p className="text-red-600">
             Your browser doesn't support the Web Speech API. Please use Chrome, Safari, or Edge.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (showApiKeyInput) {
-    return (
-      <div className={`bg-white rounded-lg border shadow-sm p-6 ${className}`}>
-        <div className="text-center">
-          <div className="text-4xl mb-4">🔑</div>
-          <h3 className="text-lg font-semibold text-gray-800 mb-2">
-            Gemini API Key Required
-          </h3>
-          <p className="text-gray-600 mb-4">
-            Enter your Gemini API key to enable voice-controlled robot commands.
-          </p>
-          <div className="max-w-md mx-auto">
-            <input
-              type="password"
-              placeholder="Gemini API Key"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleApiKeySubmit(e.currentTarget.value);
-                }
-              }}
-            />
-            <button
-              onClick={() => {
-                const input = document.querySelector('input[type="password"]') as HTMLInputElement;
-                if (input?.value) {
-                  handleApiKeySubmit(input.value);
-                }
-              }}
-              className="mt-2 w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Connect
-            </button>
-          </div>
-          <p className="text-xs text-gray-500 mt-4">
-            Your API key is stored locally and never sent to our servers.
           </p>
         </div>
       </div>

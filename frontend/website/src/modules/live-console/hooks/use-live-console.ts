@@ -36,13 +36,13 @@ export interface LiveConsoleStats {
 }
 
 interface LiveConsoleConfig {
-  geminiApiKey: string;
+  backendUrl?: string;
   autoExecuteCommands?: boolean;
   confidenceThreshold?: number;
   maxProcessingTime?: number;
 }
 
-export function useLiveConsole(config: LiveConsoleConfig) {
+export function useLiveConsole(config: LiveConsoleConfig = {}) {
   const [state, setState] = useState<LiveConsoleState>({
     isListening: false,
     isProcessing: false,
@@ -75,32 +75,33 @@ export function useLiveConsole(config: LiveConsoleConfig) {
 
   // Initialize Gemini service
   useEffect(() => {
-    if (!config.geminiApiKey) {
-      setState(prev => ({ ...prev, error: 'Gemini API key is required' }));
-      return;
-    }
+    const initializeService = async () => {
+      try {
+        geminiServiceRef.current = new GeminiLiveService({
+          backendUrl: config.backendUrl
+        });
 
-    try {
-      geminiServiceRef.current = new GeminiLiveService({
-        apiKey: config.geminiApiKey,
-        model: 'gemini-1.5-flash'
-      });
+        // Check if backend is actually reachable
+        const isConnected = await geminiServiceRef.current.checkConnection();
 
-      setState(prev => ({
-        ...prev,
-        isConnected: true,
-        sessionId: geminiServiceRef.current!.getSessionId(),
-        error: null
-      }));
+        setState(prev => ({
+          ...prev,
+          isConnected,
+          sessionId: geminiServiceRef.current!.getSessionId(),
+          error: isConnected ? null : 'Backend service is not reachable'
+        }));
 
-      sessionStartTimeRef.current = Date.now();
-    } catch (error) {
-      setState(prev => ({
-        ...prev,
-        error: `Failed to initialize Gemini service: ${error instanceof Error ? error.message : 'Unknown error'}`
-      }));
-    }
-  }, [config.geminiApiKey]);
+        sessionStartTimeRef.current = Date.now();
+      } catch (error) {
+        setState(prev => ({
+          ...prev,
+          error: `Failed to initialize Gemini service: ${error instanceof Error ? error.message : 'Unknown error'}`
+        }));
+      }
+    };
+
+    initializeService();
+  }, [config.backendUrl]);
 
   // Update session stats periodically
   useEffect(() => {
@@ -289,6 +290,61 @@ export function useLiveConsole(config: LiveConsoleConfig) {
     }
   }, []);
 
+  const processTextCommand = useCallback(async (text: string) => {
+    if (!text.trim()) return;
+
+    setState(prev => ({ 
+      ...prev, 
+      isProcessing: true, 
+      lastCommand: text.trim(),
+      currentTranscript: text.trim()
+    }));
+
+    try {
+      if (!geminiServiceRef.current) {
+        throw new Error('Gemini service not initialized');
+      }
+
+      // Create a synthetic speech result for text input
+      const textResult: SpeechRecognitionResult = {
+        transcript: text.trim(),
+        confidence: 1.0,
+        isFinal: true,
+        timestamp: Date.now()
+      };
+
+      const response = await geminiServiceRef.current.processVoiceCommand(textResult);
+      
+      setRecentResponses(prev => [response, ...prev.slice(0, 9)]); // Keep last 10 responses
+      
+      setStats(prev => ({
+        ...prev,
+        commandCount: prev.commandCount + 1,
+        totalProcessingTime: prev.totalProcessingTime + response.processingTime
+      }));
+
+      // Execute robot commands if auto-execute is enabled
+      if (config.autoExecuteCommands !== false && response.commands.length > 0) {
+        await executeRobotCommands(response.commands);
+      }
+
+      setState(prev => ({ ...prev, isProcessing: false, error: null }));
+
+      return response;
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setState(prev => ({ 
+        ...prev, 
+        isProcessing: false, 
+        error: `Processing failed: ${errorMessage}`
+      }));
+      
+      setStats(prev => ({ ...prev, errorCount: prev.errorCount + 1 }));
+      throw error;
+    }
+  }, [config.autoExecuteCommands]);
+
   return {
     state,
     stats,
@@ -300,7 +356,8 @@ export function useLiveConsole(config: LiveConsoleConfig) {
       stopListening,
       clearError,
       resetSession,
-      executeCommand
+      executeCommand,
+      processTextCommand
     },
     isSupported: speechRecognitionService.getIsSupported()
   };

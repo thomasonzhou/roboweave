@@ -1,14 +1,12 @@
 /**
  * Gemini Live API Service
- * Handles communication with Gemini for processing voice commands and robot control
+ * Handles communication with Gemini backend service for processing voice commands and robot control
  */
 
 import type { SpeechRecognitionResult } from './speech-recognition';
 
 export interface GeminiConfig {
-  apiKey: string;
-  model?: string;
-  systemInstruction?: string;
+  backendUrl?: string;
 }
 
 export interface RobotCommand {
@@ -29,6 +27,7 @@ export interface GeminiResponse {
   explanation: string;
   timestamp: number;
   processingTime: number;
+  sessionId: string;
 }
 
 export interface WeaveObservability {
@@ -43,10 +42,6 @@ export interface WeaveObservability {
     model: string;
     systemInstruction: string;
     processingTime: number;
-    tokens?: {
-      input: number;
-      output: number;
-    };
   };
   output: {
     commands: RobotCommand[];
@@ -60,55 +55,14 @@ export interface WeaveObservability {
   };
 }
 
-const DEFAULT_SYSTEM_INSTRUCTION = `You are RoboWeave Voice Controller, an AI assistant that converts natural language voice commands into structured robot control actions.
-
-ROBOT CAPABILITIES:
-- Movement: forward, backward, left, right (distance in meters, 0.1-2.0)
-- Rotation: left, right (angle in degrees, 15-180)
-- Actions: stop, flip, circle motion (radius 0.5-3.0m, duration 5-30s)
-
-RESPONSE FORMAT (JSON only):
-{
-  "commands": [
-    {
-      "action": "move_forward",
-      "parameters": {"distance": 0.5},
-      "reasoning": "User requested forward movement",
-      "confidence": 0.95
-    }
-  ],
-  "explanation": "Moving the robot forward by 0.5 meters as requested."
-}
-
-GUIDELINES:
-- Always respond with valid JSON
-- Use safe parameters (small distances/angles for safety)
-- Provide clear reasoning for each command
-- If unclear, ask for clarification
-- Support compound commands: "move forward then turn left"
-- Default values: distance=0.3m, angle=45°, radius=2m, duration=10s
-
-EXAMPLES:
-"Move forward" → move_forward, distance: 0.3
-"Turn around" → rotate_left, angle: 180
-"Go backward a bit" → move_backward, distance: 0.2
-"Do a flip" → flip
-"Move in a circle" → circle, radius: 2, duration: 10
-"Stop the robot" → stop`;
-
 export class GeminiLiveService {
-  private apiKey: string;
-  private model: string;
-  private systemInstruction: string;
+  private backendUrl: string;
   private sessionId: string;
   private sessionStartTime: number;
   private commandCount: number = 0;
-  private baseUrl = 'https://generativelanguage.googleapis.com/v1beta';
 
-  constructor(config: GeminiConfig) {
-    this.apiKey = config.apiKey;
-    this.model = config.model || 'gemini-1.5-flash';
-    this.systemInstruction = config.systemInstruction || DEFAULT_SYSTEM_INSTRUCTION;
+  constructor(config: GeminiConfig = {}) {
+    this.backendUrl = config.backendUrl || 'http://localhost:8000';
     this.sessionId = this.generateSessionId();
     this.sessionStartTime = Date.now();
   }
@@ -123,30 +77,30 @@ export class GeminiLiveService {
     const startTime = Date.now();
     
     try {
-      const response = await this.callGeminiAPI(speechResult.transcript);
+      const response = await this.callBackendService(speechResult);
       const processingTime = Date.now() - startTime;
       
       const geminiResponse: GeminiResponse = {
         commands: response.commands || [],
         explanation: response.explanation || 'Command processed',
         timestamp: Date.now(),
-        processingTime
+        processingTime,
+        sessionId: response.session_id || this.sessionId
       };
 
-      // Track with Weave observability
+      // Track with Weave observability (console logging for now)
       await this.trackWithWeave({
-        sessionId: this.sessionId,
+        sessionId: geminiResponse.sessionId,
         timestamp: Date.now(),
         input: {
           transcript: speechResult.transcript,
           confidence: speechResult.confidence,
-          speechDuration: 0 // Would need to track from speech start
+          speechDuration: 0
         },
         processing: {
-          model: this.model,
-          systemInstruction: this.systemInstruction,
+          model: 'gemini-1.5-flash',
+          systemInstruction: 'Robot voice control system',
           processingTime,
-          tokens: response.tokens
         },
         output: {
           commands: geminiResponse.commands,
@@ -175,8 +129,8 @@ export class GeminiLiveService {
           speechDuration: 0
         },
         processing: {
-          model: this.model,
-          systemInstruction: this.systemInstruction,
+          model: 'gemini-1.5-flash',
+          systemInstruction: 'Robot voice control system',
           processingTime: Date.now() - startTime
         },
         output: {
@@ -195,44 +149,16 @@ export class GeminiLiveService {
     }
   }
 
-  private async callGeminiAPI(transcript: string): Promise<any> {
-    const url = `${this.baseUrl}/models/${this.model}:generateContent`;
+  private async callBackendService(speechResult: SpeechRecognitionResult): Promise<any> {
+    const url = `${this.backendUrl}/process-voice-command`;
     
     const requestBody = {
-      contents: [
-        {
-          parts: [
-            {
-              text: `${this.systemInstruction}\n\nUser voice command: "${transcript}"\n\nProvide a JSON response with robot commands.`
-            }
-          ]
-        }
-      ],
-      generationConfig: {
-        temperature: 0.1,
-        maxOutputTokens: 1000,
-        responseSchema: {
-          type: 'object',
-          properties: {
-            commands: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  action: { type: 'string' },
-                  parameters: { type: 'object' },
-                  reasoning: { type: 'string' },
-                  confidence: { type: 'number' }
-                }
-              }
-            },
-            explanation: { type: 'string' }
-          }
-        }
-      }
+      transcript: speechResult.transcript,
+      confidence: speechResult.confidence,
+      session_id: this.sessionId
     };
 
-    const response = await fetch(`${url}?key=${this.apiKey}`, {
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -241,23 +167,12 @@ export class GeminiLiveService {
     });
 
     if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`Backend service error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const data = await response.json();
-    
-    if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
-      throw new Error('Invalid response from Gemini API');
-    }
-
-    const responseText = data.candidates[0].content.parts[0].text;
-    
-    try {
-      return JSON.parse(responseText);
-    } catch (parseError) {
-      console.error('Failed to parse Gemini response:', responseText);
-      throw new Error('Invalid JSON response from Gemini');
-    }
+    return data;
   }
 
   private async trackWithWeave(observabilityData: WeaveObservability): Promise<void> {
@@ -282,6 +197,33 @@ export class GeminiLiveService {
       */
     } catch (error) {
       console.warn('Failed to track with Weave:', error);
+    }
+  }
+
+  public async checkConnection(): Promise<boolean> {
+    try {
+      const url = `${this.backendUrl}/health`;
+      console.log('🔌 Checking connection to:', url);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const isHealthy = response.ok;
+      console.log('🔌 Connection check result:', isHealthy ? '✅ Connected' : '❌ Failed');
+      
+      if (isHealthy) {
+        const healthData = await response.json();
+        console.log('🔌 Backend health:', healthData);
+      }
+      
+      return isHealthy;
+    } catch (error) {
+      console.error('🔌 Connection check failed:', error);
+      return false;
     }
   }
 
