@@ -1,14 +1,14 @@
 import { useState } from "react";
+import { Link, useLocation } from "@tanstack/react-router";
 
 export function NavigationComponent() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const location = useLocation();
 
     const navItems = [
-        { name: "Overview", href: "#overview" },
-        { name: "Features", href: "#features" },
-        { name: "Architecture", href: "#architecture" },
-        { name: "Demo", href: "#demo" },
-        { name: "Team", href: "#team" },
+        { name: "Home", href: "/" },
+        { name: "Demo", href: "/demo" },
+        { name: "Live Console", href: "/live-console" },
     ];
 
     return (
@@ -29,13 +29,14 @@ export function NavigationComponent() {
                     <div className="hidden md:block">
                         <div className="ml-10 flex items-baseline space-x-8">
                             {navItems.map((item) => (
-                                <a
+                                <Link
                                     key={item.name}
-                                    href={item.href}
-                                    className="text-stone-600 hover:text-stone-900 px-3 py-2 text-sm font-medium transition-colors duration-200 hover:bg-stone-100 rounded-md"
+                                    to={item.href}
+                                    className="text-stone-600 hover:text-stone-900 px-3 py-2 text-sm font-medium transition-colors duration-200 hover:bg-stone-100 rounded-md [&.active]:text-orange-600 [&.active]:bg-orange-50"
+                                    activeProps={{ className: "active" }}
                                 >
                                     {item.name}
-                                </a>
+                                </Link>
                             ))}
                         </div>
                     </div>
@@ -75,14 +76,15 @@ export function NavigationComponent() {
                 <div className="md:hidden">
                     <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white/95 border-t border-stone-200">
                         {navItems.map((item) => (
-                            <a
+                            <Link
                                 key={item.name}
-                                href={item.href}
-                                className="text-stone-600 hover:text-stone-900 block px-3 py-2 text-base font-medium transition-colors duration-200 hover:bg-stone-100 rounded-md"
+                                to={item.href}
+                                className="text-stone-600 hover:text-stone-900 block px-3 py-2 text-base font-medium transition-colors duration-200 hover:bg-stone-100 rounded-md [&.active]:text-orange-600 [&.active]:bg-orange-50"
+                                activeProps={{ className: "active" }}
                                 onClick={() => setIsMenuOpen(false)}
                             >
                                 {item.name}
-                            </a>
+                            </Link>
                         ))}
                         <a
                             href="https://github.com/thomasonzhou/roboweave"

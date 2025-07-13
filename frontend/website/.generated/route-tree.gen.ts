@@ -11,10 +11,16 @@
 // Import Routes
 
 import { Route as rootRoute } from "./../src/pages/__root";
+import { Route as LiveConsoleImport } from "./../src/pages/live-console";
 import { Route as DemoImport } from "./../src/pages/demo";
 import { Route as IndexImport } from "./../src/pages/index";
 
 // Create/Update Routes
+
+const LiveConsoleRoute = LiveConsoleImport.update({
+  path: "/live-console",
+  getParentRoute: () => rootRoute,
+} as any);
 
 const DemoRoute = DemoImport.update({
   path: "/demo",
@@ -44,6 +50,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof DemoImport;
       parentRoute: typeof rootRoute;
     };
+    "/live-console": {
+      id: "/live-console";
+      path: "/live-console";
+      fullPath: "/live-console";
+      preLoaderRoute: typeof LiveConsoleImport;
+      parentRoute: typeof rootRoute;
+    };
   }
 }
 
@@ -52,36 +65,41 @@ declare module "@tanstack/react-router" {
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
   "/demo": typeof DemoRoute;
+  "/live-console": typeof LiveConsoleRoute;
 }
 
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
   "/demo": typeof DemoRoute;
+  "/live-console": typeof LiveConsoleRoute;
 }
 
 export interface FileRoutesById {
   __root__: typeof rootRoute;
   "/": typeof IndexRoute;
   "/demo": typeof DemoRoute;
+  "/live-console": typeof LiveConsoleRoute;
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/" | "/demo";
+  fullPaths: "/" | "/demo" | "/live-console";
   fileRoutesByTo: FileRoutesByTo;
-  to: "/" | "/demo";
-  id: "__root__" | "/" | "/demo";
+  to: "/" | "/demo" | "/live-console";
+  id: "__root__" | "/" | "/demo" | "/live-console";
   fileRoutesById: FileRoutesById;
 }
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
   DemoRoute: typeof DemoRoute;
+  LiveConsoleRoute: typeof LiveConsoleRoute;
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DemoRoute: DemoRoute,
+  LiveConsoleRoute: LiveConsoleRoute,
 };
 
 export const routeTree = rootRoute
@@ -97,7 +115,8 @@ export const routeTree = rootRoute
       "filePath": "__root.tsx",
       "children": [
         "/",
-        "/demo"
+        "/demo",
+        "/live-console"
       ]
     },
     "/": {
@@ -105,6 +124,9 @@ export const routeTree = rootRoute
     },
     "/demo": {
       "filePath": "demo.tsx"
+    },
+    "/live-console": {
+      "filePath": "live-console.tsx"
     }
   }
 }
