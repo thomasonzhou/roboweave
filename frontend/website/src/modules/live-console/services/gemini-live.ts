@@ -204,25 +204,49 @@ export class GeminiLiveService {
     try {
       const url = `${this.backendUrl}/health`;
       console.log('🔌 Checking connection to:', url);
+      console.log('🔌 Backend URL configured as:', this.backendUrl);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
       
       const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
       
       const isHealthy = response.ok;
       console.log('🔌 Connection check result:', isHealthy ? '✅ Connected' : '❌ Failed');
+      console.log('🔌 Response status:', response.status, response.statusText);
+      console.log('🔌 Response headers:', Object.fromEntries(response.headers.entries()));
       
       if (isHealthy) {
         const healthData = await response.json();
         console.log('🔌 Backend health:', healthData);
+      } else {
+        const errorText = await response.text();
+        console.error('🔌 Health check failed with response:', errorText);
       }
       
       return isHealthy;
     } catch (error) {
       console.error('🔌 Connection check failed:', error);
+      if (error instanceof Error) {
+        console.error('🔌 Error name:', error.name);
+        console.error('🔌 Error message:', error.message);
+        
+        if (error.name === 'AbortError') {
+          console.error('🔌 Request timed out after 5 seconds');
+        } else if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+          console.error('🔌 Network error - likely CORS or connection refused');
+          console.error('🔌 Check if backend is running on:', this.backendUrl);
+          console.error('🔌 Check CORS configuration allows your frontend origin');
+        }
+      }
       return false;
     }
   }

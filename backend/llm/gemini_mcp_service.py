@@ -238,11 +238,8 @@ async def call_robot_mcp_tool(tool_name: str, arguments: Dict[str, Any] = None) 
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{MCP_ROBOT_URL}/call_tool",
-                json={
-                    "name": tool_name,
-                    "arguments": arguments
-                },
+                f"{MCP_ROBOT_URL}/mcp/tools/{tool_name}",
+                json=arguments,
                 timeout=30.0
             )
             

@@ -64,12 +64,17 @@ export function useLiveConsole(config: LiveConsoleConfig = {}) {
   useEffect(() => {
     const initializeService = async () => {
       try {
+        console.log('🚀 Initializing Gemini service with backend URL:', config.backendUrl);
+        
         geminiServiceRef.current = new GeminiLiveService({
           backendUrl: config.backendUrl
         });
 
+        console.log('🔌 Checking backend connection...');
         // Check if backend is actually reachable
         const isConnected = await geminiServiceRef.current.checkConnection();
+        
+        console.log('🔌 Connection result:', isConnected);
 
         setState(prev => ({
           ...prev,
@@ -80,6 +85,7 @@ export function useLiveConsole(config: LiveConsoleConfig = {}) {
 
         sessionStartTimeRef.current = Date.now();
       } catch (error) {
+        console.error('🚫 Failed to initialize Gemini service:', error);
         setState(prev => ({
           ...prev,
           error: `Failed to initialize Gemini service: ${error instanceof Error ? error.message : 'Unknown error'}`
