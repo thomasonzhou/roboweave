@@ -45,10 +45,12 @@ with agent_lib.Agent(
   TARGETS = {"Home", "Circle"}
 
   target = "Circle"
-
+  state = agent.get_state()
 
   start_time = time.time()
   while True:
+    state = agent.get_state()
+    print(f"Current state: {state.qpos[:2]}")
     if target == "Circle":
       current_time = time.time() - start_time
           
