@@ -1,0 +1,43 @@
+:root {
+    @apply font-sans;
+    
+    /* Professional font stack matching Claude's typography */
+    font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+
+    /* Enhanced font rendering for Claude-like crisp text */
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+    font-feature-settings: "liga" 1, "kern" 1, "cv02" 1, "cv03" 1, "cv04" 1;
+    font-variant-ligatures: common-ligatures;
+    
+    /* Claude-style letter spacing for optimal readability */
+    letter-spacing: -0.014em;
+    
+    /* Professional line height like Claude */
+    line-height: 1.5;
+    
+    /* Ensure consistent font weight */
+    font-weight: 400;
+}
+
+html {
+    @apply text-16px;
+    
+    /* Smooth scrolling for modern feel */
+    scroll-behavior: smooth;
+}
+
+/* Professional typography defaults */
+h1, h2, h3, h4, h5, h6 {
+    font-feature-settings: "liga" 1, "kern" 1;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+}
+
+/* Better button and input typography */
+button, input, textarea, select {
+    font-feature-settings: "liga" 1, "kern" 1;
+    letter-spacing: -0.005em;
+}

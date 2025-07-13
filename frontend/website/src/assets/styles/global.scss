@@ -1,0 +1,48 @@
+@import "base";
+@import "@xyflow/react/dist/style.css";
+@import "overlayscrollbars/styles/overlayscrollbars.css";
+@import "split-pane-react/esm/themes/default.css";
+@import "overrides/overlayscrollbars";
+@import "overrides/reactflow";
+
+body {
+    @apply font-normal w-full of-x-hidden text-light-50 bg-dark-700 scroll-smooth min-h-dvh;
+}
+
+#root {
+    @apply w-full min-h-full;
+}
+
+/* Elegant typewriter animation for RoboWeave title */
+.typewriter-text {
+    position: relative;
+    white-space: nowrap;
+    overflow: hidden;
+    border-right: 3px solid #78716c;
+    width: 0;
+    animation: typewriter 0.83s ease-out forwards, 
+               blink-cursor 0.75s step-end infinite;
+    animation-delay: 0.17s;
+}
+
+@keyframes typewriter {
+    0% {
+        width: 0;
+    }
+    99% {
+        border-color: #78716c;
+    }
+    100% {
+        width: 9ch;
+        border-color: transparent;
+    }
+}
+
+@keyframes blink-cursor {
+    0%, 50% {
+        border-color: #78716c;
+    }
+    51%, 100% {
+        border-color: transparent;
+    }
+}
